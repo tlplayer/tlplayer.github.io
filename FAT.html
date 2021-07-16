@@ -1,5 +1,58 @@
+<html>
+
+<head>
+    <title>File Allocation Table (FAT)</title>
+    <link rel="stylesheet" href="styles.css">
+    <meta src="robot.png" />
+</head>
+
+
+
 <body>
-<center>
-	<h1>Still in Progress</h1>
-</center
+<center><h1>File Allocation Table</h1></center>
+<h2>PREFACE</h2>
+<p>This is a school assignment so I don't feel like an extremely thorough explaination <br>
+of the system is academically honest. So The explaination here is lacking. The Lab documentation at the bottom in<br>
+sources should cover most of the topic I'm going to move onto assignments from other universities so I don't get expelled.<p>
+
+<h2>Description</h2>
+<p>
+Memory for large datacenters was originally stored on large disks with laser scanners on them.<br> 
+The memory would be broken up into sectors containing a number of bytes. To make this more efficient<br>
+a File allocation table was created. A FAT is a memory storage structure that uses an index table of corresponding disk <br>
+blocks to store files efficiently.They are still used in devices that require memory efficiency over file access speed, like NXP boards.<br>
+</p>
+<hr>
+<h2>Technical Concepts</h2>
+<p>
+A FAT is technically challenging to implement. Sectors are stored in a scheme where the first sectors<br>
+act as indices to blocks. The blocks that are indexed to in the table are then linked to different indices.<br>
+<p>
+<center><img src=FAT_diagram.png width="800" height="600"></center>
+
+<p>
+In this example the table starts at sector 0. The files can occupy the 9 others.<br>
+The first available sector is 1 if the file needs more memory than sector 1 occupies it will proceeed to 1's<br>
+link in the FAT. 7 is the next sector that is free. It will continue until either<br>
+A. The sectors have adequately stored the file<br>
+B. The last sector is used in which case the file cannot be stored and should nothing should be written to any sector.<br>
+For a more detailed equation for links checkout Dr. Plank's description in the sources. 
+</p>
+<p>
+<p>
+<hr>
+<h2>Sources</h2>
+<ul>
+<li>http://web.eecs.utk.edu/~jplank/plank/classes/cs494/494/labs.html - Dr. James Plank</li>
+<li>https://pages.cs.wisc.edu/~remzi/OSTEP/file-implementation.pdf</li>
+</ul>
 </body>
+
+<h2>Tools</h2>
+<ul>
+<li>text editor - VIM</li>
+<li>hosting service - Github Pages</li>
+<li>Hardware - Macbook Pro 13 inches</li>
+</ul>
+
+</html>
