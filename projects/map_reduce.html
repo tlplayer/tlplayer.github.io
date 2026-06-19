@@ -15,38 +15,51 @@
 
 <h2>Description</h2>
 <p>
-In 2004 Google engineers tried lots of methods to parallelize their processes.<br>
-They implemented Map and Reduce. Which drastically increased the efficiency for finding documents<br>
-and processing the whole internet. The algorithm worked by using a list of Map functions supplied to the algorithm.<br>
-The algorithm would then create key value lists that would be fed into the reduce functions. 
+This project is my implementation of the MIT distributed systems MapReduce lab.<br>
+MapReduce is a programming model for processing large data sets by splitting work into two stages:<br>
+map functions generate intermediate key/value pairs, and reduce functions combine all values for each key.<br>
+The interesting part of the lab was not just running map and reduce code, but coordinating many workers,<br>
+tracking task progress, and recovering when a worker stops responding.
 </p>
 <hr>
 <h2>Technical Concepts</h2>
 <p>
-The language used for this project was Go. Go maps well to threaded server management<br>
-For a couple of reasons, 1. It's garbage collected to avoid thread waiting for collecting memory<br>
-Go is faster than Java because it is compiled. And Go was the supplied starter code and I did not want <br>
-To start this from scratch.
+The implementation is written in Go, which fits the lab well because goroutines and RPC make it natural<br>
+to build a coordinator that talks to multiple worker processes. The coordinator acts like a small state machine:<br>
+it starts in the map phase, waits for all map tasks to finish, moves to the reduce phase, and finally marks the job done.
+</p>
+<p>
+During the map phase, the coordinator creates one task for each input file and assigns available tasks to idle workers.<br>
+Each worker reads its input file, runs the user-defined <code>Map()</code> function, partitions the intermediate key/value pairs<br>
+into reduce buckets, and writes those intermediate files to disk. During the reduce phase, workers read the intermediate<br>
+files for their partition, sort and group by key, run <code>Reduce()</code>, and write the final output files.
+</p>
+<p>
+The coordinator tracks every task as idle, in progress, or completed. If a worker takes too long or exits early,<br>
+the coordinator treats the task as unfinished and makes it available again. This retry behavior is what lets the system<br>
+pass the crash and early-exit tests in the lab test suite.
 </p>
 <p><center><img src=mr_diagram.png width="800" height="600"></center></p>
 <center><p>Map Reduce Diagram from Google Paper</p></center>
 <hr>
 <h2>Sources</h2>
 <ul>
+<li>http://nil.csail.mit.edu/6.5840/2025/labs/lab-mr.html - MIT 6.5840 MapReduce Lab</li>
 <li>https://www.youtube.com/watch?v=cQP8WApzIQQ&amp;list=PLrw6a1wE39_tb2fErI4-WkMbsvGQk9_UB&amp;index=2 - MIT lectures by Frans Kaashoek</li>
-<li>https://pdos.csail.mit.edu/6.824/papers/mapreduce.pdf - Map Reduce Paper</li>
+<li>http://nil.csail.mit.edu/6.5840/2025/papers/mapreduce.pdf - MapReduce Paper</li>
 
 </ul>
 
 
 <h2>Code</h2>
-<p><a href="../index.html">Code</a></p>
+<p><a href="https://github.com/tlplayer/distributed_systems/tree/main/src/mr">Code</a></p>
 
 <h2>Tools</h2>
 <ul>
 <li>Implementation - Go</li>
-<li>text editor - VIM</li>
-<li>hosting service - Github Pages</li>
+<li>Testing - MIT 6.5840 MapReduce lab test suite</li>
+<li>Text editor - VIM</li>
+<li>Hosting service - Github Pages</li>
 <li>Hardware - Macbook Pro 13 inches</li>
 </ul>
 
