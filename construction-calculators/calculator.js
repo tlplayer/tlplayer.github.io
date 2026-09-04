@@ -6,6 +6,7 @@
 
     var kind = form.dataset.calculatorForm;
     var result = document.querySelector("[data-calculator-result]");
+    var retailerPanel = null;
     var currentUnit = "imperial";
 
     var unitFactors = {
@@ -70,7 +71,8 @@
             length: unit("foot", "Project length (feet)", "Project length (meters)"),
             width: unit("foot", "Project width (feet)", "Project width (meters)"),
             paverLength: unit("millimeter", "Paver length (inches)", "Paver length (millimeters)"),
-            paverWidth: unit("millimeter", "Paver width (inches)", "Paver width (millimeters)")
+            paverWidth: unit("millimeter", "Paver width (inches)", "Paver width (millimeters)"),
+            jointWidth: unit("millimeter", "Joint width (inches)", "Joint width (millimeters)")
         },
         paint: {
             length: unit("foot", "Room length (feet)", "Room length (meters)"),
@@ -98,6 +100,19 @@
         framing: {
             wallLength: unit("foot", "Wall length (feet)", "Wall length (meters)"),
             wallHeight: unit("foot", "Wall height (feet)", "Wall height (meters)")
+        },
+        sod: {
+            length: unit("foot", "Lawn length (feet)", "Lawn length (meters)"),
+            width: unit("foot", "Lawn width (feet)", "Lawn width (meters)"),
+            rollCoverage: unit("area", "Coverage per roll (ft²)", "Coverage per roll (m²)"),
+            palletCoverage: unit("area", "Coverage per pallet (ft²)", "Coverage per pallet (m²)")
+        },
+        edging: {
+            length: unit("foot", "Area length (feet)", "Area length (meters)"),
+            width: unit("foot", "Area width (feet)", "Area width (meters)"),
+            gaps: unit("foot", "Unedged gaps (feet)", "Unedged gaps (meters)"),
+            pieceLength: unit("foot", "Edging piece length (feet)", "Edging piece length (meters)"),
+            stakeSpacing: unit("foot", "Stake spacing (feet)", "Stake spacing (meters)")
         }
     };
 
@@ -245,16 +260,21 @@
             if (!requirePositive(["length", "width", "paverLength", "paverWidth"])) return null;
             var area = value("length") * value("width");
             var waste = Math.max(0, value("waste") || 0) / 100;
-            var paverArea = value("paverLength") * value("paverWidth") / 144;
+            var jointWidth = Math.max(0, optionalValue("jointWidth", 0));
+            var paverArea = (value("paverLength") + jointWidth) * (value("paverWidth") + jointWidth) / 144;
             var count = roundUp(area * (1 + waste) / paverArea);
+            var perPallet = Math.max(0, optionalValue("paversPerPallet", 0));
+            var pricePerPaver = Math.max(0, optionalValue("pricePerPaver", 0));
+            var details = [
+                ["Project area", metric() ? format(area * 0.092903) + " m²" : format(area) + " ft²"],
+                ["Order area", metric() ? format(area * (1 + waste) * 0.092903) + " m²" : format(area * (1 + waste)) + " ft²"],
+                ["Pallets", perPallet ? format(roundUp(count / perPallet), 0) : "Add pallet size"]
+            ];
+            if (pricePerPaver) details.push(["Estimated paver cost", "$" + format(count * pricePerPaver)]);
             return {
                 primary: format(count, 0) + " pavers",
-                details: [
-                    ["Project area", metric() ? format(area * 0.092903) + " m²" : format(area) + " ft²"],
-                    ["Order area", metric() ? format(area * (1 + waste) * 0.092903) + " m²" : format(area * (1 + waste)) + " ft²"],
-                    ["Each paver", metric() ? format(paverArea * 0.092903, 4) + " m²" : format(paverArea, 3) + " ft²"]
-                ],
-                note: "Count includes " + format(waste * 100, 1) + "% for cuts and breakage. Pattern layouts may require more overage."
+                details: details,
+                note: "Count includes " + format(waste * 100, 1) + "% for cuts and breakage and a " + (metric() ? format(jointWidth * 25.4) + " mm" : format(jointWidth) + " in") + " joint. Pattern layouts may require more overage."
             };
         },
         paint: function () {
@@ -339,6 +359,47 @@
                     ["Wall area", metric() ? format(wallArea * 0.092903) + " m²" : format(wallArea) + " ft²"]
                 ],
                 note: "A quantity estimate only. Openings add " + format(extraPerOpening, 0) + " studs each; headers, corners, intersections, blocking, and structural requirements must be planned separately."
+            };
+        },
+        sod: function () {
+            if (!requirePositive(["length", "width", "rollCoverage", "palletCoverage"])) return null;
+            var area = value("length") * value("width");
+            var waste = Math.max(0, value("waste") || 0) / 100;
+            var orderArea = area * (1 + waste);
+            var rolls = roundUp(orderArea / value("rollCoverage"));
+            var pallets = roundUp(orderArea / value("palletCoverage"));
+            var pricePerRoll = Math.max(0, optionalValue("pricePerRoll", 0));
+            var details = [
+                ["Lawn area", metric() ? format(area * 0.092903) + " m²" : format(area) + " ft²"],
+                ["Sod pallets", format(pallets, 0)],
+                ["Order coverage", metric() ? format(orderArea * 0.092903) + " m²" : format(orderArea) + " ft²"]
+            ];
+            if (pricePerRoll) details.push(["Estimated sod cost", "$" + format(rolls * pricePerRoll)]);
+            return {
+                primary: format(rolls, 0) + " sod rolls",
+                details: details,
+                note: "Includes " + format(waste * 100, 1) + "% extra sod. Roll and pallet coverage vary by supplier and region; replace the defaults with the quoted product coverage."
+            };
+        },
+        edging: function () {
+            if (!requirePositive(["length", "width", "pieceLength", "stakeSpacing"])) return null;
+            var gaps = Math.max(0, optionalValue("gaps", 0));
+            var perimeter = Math.max(0, 2 * (value("length") + value("width")) - gaps);
+            var waste = Math.max(0, value("waste") || 0) / 100;
+            var orderLength = perimeter * (1 + waste);
+            var pieces = roundUp(orderLength / value("pieceLength"));
+            var stakes = perimeter > 0 ? roundUp(perimeter / value("stakeSpacing")) + 1 : 0;
+            var pricePerPiece = Math.max(0, optionalValue("pricePerPiece", 0));
+            var details = [
+                ["Edging to order", metric() ? format(orderLength * 0.3048) + " m" : format(orderLength) + " ft"],
+                ["Estimated stakes", format(stakes, 0)],
+                ["Measured perimeter", metric() ? format(perimeter * 0.3048) + " m" : format(perimeter) + " ft"]
+            ];
+            if (pricePerPiece) details.push(["Estimated edging cost", "$" + format(pieces * pricePerPiece)]);
+            return {
+                primary: format(pieces, 0) + " edging pieces",
+                details: details,
+                note: "Assumes a rectangular perimeter minus entered gaps, plus " + format(waste * 100, 1) + "% extra. Curves and corners can require closer stake spacing."
             };
         }
     };
@@ -475,6 +536,7 @@
         if (event) event.preventDefault();
         render(calculators[kind]());
         updateShareUrl();
+        if (retailerPanel) updateRetailerLinks(retailerPanel);
     }
 
     setupUnitSystem();
@@ -533,13 +595,29 @@
         paint: "interior wall paint",
         drywall: "drywall sheets",
         "appliance-fit": "large appliances",
-        framing: "2x4 studs framing lumber"
+        framing: "2x4 studs framing lumber",
+        sod: "sod rolls",
+        edging: "landscape edging"
     };
 
+    function searchNumber(number) {
+        return String(Number(number.toFixed(2)));
+    }
+
     function retailerQuery() {
-        if (kind === "appliance-fit") {
-            return form.elements.namedItem("applianceType").value + " appliance";
+        if (kind === "appliance-fit") return searchNumber(value("productWidth")) + " inch wide " + form.elements.namedItem("applianceType").value;
+        if (kind === "gravel") return searchNumber(optionalValue("bagVolume", 0.5)) + " cu ft gravel bags";
+        if (kind === "mulch") return form.elements.namedItem("bagSize").value + " cu ft mulch";
+        if (kind === "paver") return searchNumber(value("paverLength")) + " x " + searchNumber(value("paverWidth")) + " inch patio pavers";
+        if (kind === "fence") return searchNumber(value("panelWidth")) + " ft fence panels";
+        if (kind === "board-foot") return searchNumber(value("thickness")) + " x " + searchNumber(value("width")) + " x " + searchNumber(value("length")) + " lumber";
+        if (kind === "drywall") {
+            var sheetSizes = { "32": "4 x 8", "40": "4 x 10", "48": "4 x 12" };
+            return sheetSizes[form.elements.namedItem("sheetArea").value] + " drywall sheets";
         }
+        if (kind === "framing") return "2x4x" + searchNumber(value("wallHeight")) + " studs framing lumber";
+        if (kind === "sod") return searchNumber(value("rollCoverage")) + " sq ft sod rolls";
+        if (kind === "edging") return searchNumber(value("pieceLength")) + " ft landscape edging";
         return retailerSearches[kind];
     }
 
@@ -547,6 +625,7 @@
         var query = retailerQuery();
         panel.querySelector(".lowes-link").href = "https://www.lowes.com/search?searchTerm=" + encodeURIComponent(query);
         panel.querySelector(".home-depot-link").href = "https://www.homedepot.com/s/" + encodeURIComponent(query);
+        panel.querySelector("[data-retailer-query]").textContent = query;
     }
 
     function addRetailerLinks() {
@@ -561,6 +640,7 @@
             '<p class="retailer-kicker">Optional next step</p>' +
             '<h2 id="shop-materials-title">Compare materials</h2>' +
             '<p class="retailer-intro">Open matching search results at either retailer. Local prices and availability vary.</p>' +
+            '<p class="retailer-query">Suggested search: <strong data-retailer-query></strong></p>' +
             '<div class="retailer-links">' +
                 '<a class="retailer-link lowes-link" href="https://www.lowes.com/search?searchTerm=' + encodeURIComponent(query) + '" target="_blank" rel="nofollow noopener">' +
                     '<span><small>Shop at</small>Lowe&#39;s</span><span aria-hidden="true">↗</span>' +
@@ -571,12 +651,11 @@
             '</div>' +
             '<p class="retailer-note">Direct retailer search links. No price or product is endorsed.</p>';
 
+        retailerPanel = panel;
         var ad = sideColumn.querySelector("[data-ad-unit]");
         sideColumn.insertBefore(panel, ad || null);
         updateRetailerLinks(panel);
 
-        var applianceType = form.elements.namedItem("applianceType");
-        if (applianceType) applianceType.addEventListener("change", function () { updateRetailerLinks(panel); });
     }
 
     addRetailerLinks();

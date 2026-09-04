@@ -436,6 +436,15 @@ h1 {
     font-size: .82rem;
 }
 
+.retailer-query {
+    margin: -7px 0 15px;
+    color: var(--muted);
+    font-size: .72rem;
+    line-height: 1.4;
+}
+
+.retailer-query strong { color: var(--ink); font-weight: 700; }
+
 .retailer-links { display: grid; gap: 10px; }
 
 .retailer-link {
