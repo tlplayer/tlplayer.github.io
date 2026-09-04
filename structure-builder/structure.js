@@ -69,6 +69,18 @@
         downloadCsv(element("building-type").value + "-material-estimate.csv", rows);
     }
 
+    function shareCurrent(button) {
+        var data = { title: document.title, text: summary.textContent, url: window.location.href };
+        if (navigator.share) {
+            navigator.share(data).catch(function () {});
+            return;
+        }
+        navigator.clipboard.writeText(data.url).then(function () {
+            var previous = button.textContent; button.textContent = "Link copied";
+            window.setTimeout(function () { button.textContent = previous; }, 1500);
+        }).catch(function () { button.textContent = "Copy unavailable"; });
+    }
+
     function updateUnitConstraints() {
         element("building-length").min = currentUnit === "metric" ? "1.2" : "4";
         element("building-width").min = currentUnit === "metric" ? "1.2" : "4";
@@ -228,6 +240,7 @@
     document.getElementById("structure-reset-view").addEventListener("click", function () { viewer.reset(); });
     document.getElementById("structure-print").addEventListener("click", function () { window.print(); });
     document.getElementById("structure-export").addEventListener("click", exportStructureCsv);
+    document.getElementById("structure-share").addEventListener("click", function () { shareCurrent(this); });
     document.getElementById("structure-copy").addEventListener("click", function () {
         var lines = [document.title, summary.textContent];
         latestPhases.forEach(function (phase) { lines.push("", phase.name); phase.rows.forEach(function (item) { lines.push("- " + item.name + ": " + item.quantity + (item.unit ? " " + item.unit : "")); }); });

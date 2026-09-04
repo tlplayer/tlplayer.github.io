@@ -69,6 +69,34 @@
         downloadCsv("terrain-surface-xyz.csv", rows);
     }
 
+    function shareElevations(grid) {
+        var lastRow = grid.length - 1;
+        var lastColumn = grid[0].length - 1;
+        return [grid[0][0], grid[0][Math.round(lastColumn / 2)], grid[0][lastColumn], grid[Math.round(lastRow / 2)][0], grid[Math.round(lastRow / 2)][Math.round(lastColumn / 2)], grid[Math.round(lastRow / 2)][lastColumn], grid[lastRow][0], grid[lastRow][Math.round(lastColumn / 2)], grid[lastRow][lastColumn]];
+    }
+
+    function updateUrl(grid) {
+        if (!history.replaceState) return;
+        var params = new URLSearchParams();
+        params.set("units", currentUnit);
+        params.set("width", numeric(widthInput, 1));
+        params.set("depth", numeric(depthInput, 1));
+        params.set("target", numeric(targetInput, 0));
+        params.set("vertical", numeric(exaggerationInput, 3));
+        params.set("e", shareElevations(grid).map(function (value) { return Number(value.toFixed(4)); }).join(","));
+        history.replaceState({}, "", location.pathname + "?" + params.toString());
+    }
+
+    function shareCurrent(button) {
+        var approximate = Boolean(importedGrid);
+        var data = { title: "Terrain surface | BuildEstimate", text: approximate ? "Nine-point approximation of an imported terrain surface" : "Shared terrain elevation surface", url: location.href };
+        if (navigator.share) { navigator.share(data).catch(function () {}); return; }
+        navigator.clipboard.writeText(data.url).then(function () {
+            var previous = button.textContent; button.textContent = approximate ? "Approximate link copied" : "Link copied";
+            window.setTimeout(function () { button.textContent = previous; }, 1800);
+        }).catch(function () { button.textContent = "Copy unavailable"; });
+    }
+
     function manualGrid(size) {
         var controls = elevationInputs.map(function (input) { return numeric(input, 0); });
         var output = [];
@@ -193,6 +221,7 @@
             '<tr><td>High elevation</td><td class="bom-quantity">' + format(values.max) + ' ' + lengthUnit + '</td><td>Highest sampled/interpolated point</td></tr>' +
             '<tr><td>Curvature index</td><td class="bom-quantity">' + format(values.curvature, 4) + '</td><td>Mean local second-difference; useful for relative comparison only</td></tr>' +
             '</tbody></table></details>';
+        updateUrl(grid);
     }
 
     function parsePoints(text) {
@@ -316,6 +345,20 @@
     });
     document.getElementById("terrain-reset-view").addEventListener("click", function () { viewer.reset(); });
     document.getElementById("terrain-export").addEventListener("click", exportTerrainCsv);
+    document.getElementById("terrain-share").addEventListener("click", function () { shareCurrent(this); });
     document.getElementById("terrain-print").addEventListener("click", function () { window.print(); });
+    var params = new URLSearchParams(location.search);
+    var requestedUnit = params.get("units") === "metric" ? "metric" : "imperial";
+    currentUnit = requestedUnit; units.value = requestedUnit;
+    if (params.has("width")) widthInput.value = params.get("width");
+    if (params.has("depth")) depthInput.value = params.get("depth");
+    if (params.has("target")) targetInput.value = params.get("target");
+    if (params.has("vertical")) exaggerationInput.value = params.get("vertical");
+    if (params.has("e")) {
+        var shared = params.get("e").split(",").map(Number);
+        if (shared.length === 9 && shared.every(Number.isFinite)) elevationInputs.forEach(function (input, index) { input.value = shared[index]; });
+        sourceLabel.textContent = "Shared nine-point elevation surface";
+    }
+    document.querySelectorAll("[data-length-unit], [data-elevation-unit]").forEach(function (node) { node.textContent = currentUnit === "metric" ? "m" : "ft"; });
     render();
 }());

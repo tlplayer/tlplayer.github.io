@@ -47,6 +47,8 @@
     function shoppingUrls(query){var encoded=encodeURIComponent(query);return{homeDepot:'https://www.homedepot.com/s/'+encoded,lowes:'https://www.lowes.com/search?searchTerm='+encoded,local:'https://www.google.com/search?q='+encodeURIComponent(query+' supplier near me')};}
     function splitQuantity(quantity){if(typeof quantity==='number')return{value:quantity,unit:''};var match=String(quantity).match(/^([\d,.]+)\s*(.*)$/);return match?{value:Number(match[1].replace(/,/g,'')),unit:match[2]}:{value:quantity,unit:''};}
     function exportProjectCsv(){var rows=[["Record Type","Phase","Item","Value / Quantity","Unit","Basis","Unit Cost","Extended Cost","Home Depot","Lowe's","Local Supplier"]];rows.push(['Project','','Name',document.getElementById('project-name').value,'','','','','','','']);rows.push(['Project','','Type',names[currentProject],'','','','','','','']);rows.push(['Project','','Exported',new Date().toISOString(),'','','','','','','']);definitions[currentProject].forEach(function(definition){rows.push(['Dimension / assumption','',definition[1],fieldValue(definition[0]),labelFor(definition[2]),definition[0],'','','','','']);});latestPhases.forEach(function(phase){phase.rows.forEach(function(material){var urls=shoppingUrls(material.query),quantity=splitQuantity(material.quantity);rows.push(['Material',phase.name,material.name,quantity.value,quantity.unit,material.method,'','',urls.homeDepot,urls.lowes,urls.local]);});});rows.push(['Note','','Costs','Enter quoted unit costs in Excel','','Extended cost is intentionally blank until a supplier price is known.','','','','','']);downloadCsv(currentProject+'-project-materials.csv',rows);}
+    function updateUrl(){if(!history.replaceState)return;var params=new URLSearchParams();params.set('project',currentProject);params.set('units',currentUnit);params.set('projectName',document.getElementById('project-name').value);definitions[currentProject].forEach(function(definition){params.set(definition[0],fieldValue(definition[0]));});history.replaceState({},'',location.pathname+'?'+params.toString());}
+    function shareCurrent(button){var data={title:document.getElementById('project-result-title').textContent+' | BuildEstimate',text:document.getElementById('project-summary').textContent,url:location.href};if(navigator.share){navigator.share(data).catch(function(){});return;}navigator.clipboard.writeText(data.url).then(function(){var previous=button.textContent;button.textContent='Link copied';setTimeout(function(){button.textContent=previous;},1500);}).catch(function(){button.textContent='Copy unavailable';});}
 
     function renderFields(values) {
         fieldHost.innerHTML = "";
@@ -111,6 +113,7 @@
         document.getElementById("project-summary").textContent=names[currentProject]+" · quantities update with your dimensions";
         document.getElementById("project-stats").innerHTML='<div class="stat-card"><strong>'+result.items+'</strong>Material lines</div><div class="stat-card"><strong>'+result.phases.length+'</strong>Project phases</div><div class="stat-card"><strong>'+definitions[currentProject].length+'</strong>Assumptions</div><div class="stat-card"><strong>3+</strong>Buying options</div>';
         document.getElementById("project-bom").innerHTML=result.phases.map(function(phase){return '<details class="bom-phase" open><summary>'+phase.name+'</summary><table class="bom-table"><thead><tr><th>Material</th><th>Quantity</th><th>Basis</th><th>Where to buy</th></tr></thead><tbody>'+phase.rows.map(function(row){return '<tr><td>'+row.name+'</td><td class="bom-quantity">'+row.quantity+'</td><td>'+row.method+'</td><td>'+shopLinks(row.query)+'</td></tr>';}).join('')+'</tbody></table></details>';}).join('');
+        updateUrl();
     }
 
     function readSaved() { try { return JSON.parse(localStorage.getItem(savedKey)) || []; } catch(error) { return []; } }
@@ -123,6 +126,13 @@
     document.getElementById('save-project').addEventListener('click',function(){var saved=readSaved();saved.unshift(snapshot());saved=saved.slice(0,8);try{localStorage.setItem(savedKey,JSON.stringify(saved));this.textContent='Saved';setTimeout(function(){document.getElementById('save-project').textContent='Save on this device';},1200);}catch(error){this.textContent='Storage unavailable';}renderSaved();});
     document.getElementById('project-print').addEventListener('click',function(){window.print();});
     document.getElementById('project-export').addEventListener('click',exportProjectCsv);
+    document.getElementById('project-share').addEventListener('click',function(){shareCurrent(this);});
     document.getElementById('project-copy').addEventListener('click',function(){var lines=[document.getElementById('project-result-title').textContent];latestPhases.forEach(function(phase){lines.push('',phase.name);phase.rows.forEach(function(row){lines.push('- '+row.name+': '+row.quantity);});});navigator.clipboard.writeText(lines.join('\n')).then(function(){this.textContent='Copied';}.bind(this)).catch(function(){this.textContent='Copy unavailable';}.bind(this));});
-    renderFields();renderOutput();renderSaved();
+    var params=new URLSearchParams(location.search),requestedProject=params.get('project');
+    if(definitions[requestedProject])currentProject=requestedProject;
+    currentUnit=params.get('units')==='metric'?'metric':'imperial';unitSelect.value=currentUnit;
+    document.querySelectorAll('[data-project]').forEach(function(button){button.classList.toggle('is-active',button.dataset.project===currentProject);});
+    var sharedValues={};definitions[currentProject].forEach(function(definition){if(params.has(definition[0]))sharedValues[definition[0]]=Number(params.get(definition[0]));});
+    document.getElementById('project-name').value=params.get('projectName')||names[currentProject];
+    renderFields(sharedValues);renderOutput();renderSaved();
 }());
