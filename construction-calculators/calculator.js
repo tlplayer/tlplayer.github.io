@@ -82,6 +82,22 @@
             length: unit("foot", "Room length (feet)", "Room length (meters)"),
             width: unit("foot", "Room width (feet)", "Room width (meters)"),
             height: unit("foot", "Wall height (feet)", "Wall height (meters)")
+        },
+        "appliance-fit": {
+            openingWidth: unit("centimeter", "Opening width (inches)", "Opening width (centimeters)"),
+            openingHeight: unit("centimeter", "Opening height (inches)", "Opening height (centimeters)"),
+            openingDepth: unit("centimeter", "Opening depth (inches)", "Opening depth (centimeters)"),
+            productWidth: unit("centimeter", "Appliance width (inches)", "Appliance width (centimeters)"),
+            productHeight: unit("centimeter", "Appliance height (inches)", "Appliance height (centimeters)"),
+            productDepth: unit("centimeter", "Appliance depth (inches)", "Appliance depth (centimeters)"),
+            sideClearance: unit("centimeter", "Clearance per side (inches)", "Clearance per side (centimeters)"),
+            topClearance: unit("centimeter", "Top clearance (inches)", "Top clearance (centimeters)"),
+            rearClearance: unit("centimeter", "Rear clearance (inches)", "Rear clearance (centimeters)"),
+            doorway: unit("centimeter", "Narrowest delivery doorway (inches)", "Narrowest delivery doorway (centimeters)")
+        },
+        framing: {
+            wallLength: unit("foot", "Wall length (feet)", "Wall length (meters)"),
+            wallHeight: unit("foot", "Wall height (feet)", "Wall height (meters)")
         }
     };
 
@@ -274,6 +290,56 @@
                 ],
                 note: "Sheet count includes " + format(waste * 100, 1) + "% overage. Openings are left in as a practical cutting allowance."
             };
+        },
+        "appliance-fit": function () {
+            if (!requirePositive(["openingWidth", "openingHeight", "openingDepth", "productWidth", "productHeight", "productDepth"])) return null;
+            var requiredWidth = value("productWidth") + Math.max(0, value("sideClearance") || 0) * 2;
+            var requiredHeight = value("productHeight") + Math.max(0, value("topClearance") || 0);
+            var requiredDepth = value("productDepth") + Math.max(0, value("rearClearance") || 0);
+            var widthMargin = value("openingWidth") - requiredWidth;
+            var heightMargin = value("openingHeight") - requiredHeight;
+            var depthMargin = value("openingDepth") - requiredDepth;
+            var fits = widthMargin >= 0 && heightMargin >= 0 && depthMargin >= 0;
+            var doorway = Math.max(0, optionalValue("doorway", 0));
+            var deliveryFits = !doorway || doorway >= Math.min(value("productWidth"), value("productDepth"));
+            var applianceName = form.elements.namedItem("applianceType").selectedOptions[0].textContent.toLowerCase();
+            var unitLabel = metric() ? "cm" : "in";
+            var conversion = metric() ? 2.54 : 1;
+
+            function clearance(margin) {
+                return margin >= 0
+                    ? format(margin * conversion) + " " + unitLabel + " remaining"
+                    : format(Math.abs(margin) * conversion) + " " + unitLabel + " short";
+            }
+
+            return {
+                primary: fits ? "The " + applianceName + " fits" : "The " + applianceName + " does not fit",
+                details: [
+                    ["Width check", clearance(widthMargin)],
+                    ["Height check", clearance(heightMargin)],
+                    ["Depth check", clearance(depthMargin)]
+                ],
+                note: (doorway ? (deliveryFits ? "The basic doorway-width check passes. " : "The appliance may not pass through the entered doorway. ") : "Add the narrowest doorway for a basic delivery-path check. ") + "Always use the manufacturer's required ventilation, hinge, handle, hookup, and door-swing clearances."
+            };
+        },
+        framing: function () {
+            if (!requirePositive(["wallLength", "wallHeight", "studSpacing", "plateRuns"])) return null;
+            var openings = Math.max(0, value("openings") || 0);
+            var extraPerOpening = Math.max(0, value("extraPerOpening") || 0);
+            var waste = Math.max(0, value("waste") || 0) / 100;
+            var baseStuds = roundUp(value("wallLength") * 12 / value("studSpacing")) + 1 + openings * extraPerOpening;
+            var orderStuds = roundUp(baseStuds * (1 + waste));
+            var plateLength = value("wallLength") * value("plateRuns") * (1 + waste);
+            var wallArea = value("wallLength") * value("wallHeight");
+            return {
+                primary: format(orderStuds, 0) + " wall studs",
+                details: [
+                    ["Before waste", format(baseStuds, 0) + " studs"],
+                    ["Plate lumber", metric() ? format(plateLength * 0.3048) + " m" : format(plateLength) + " linear ft"],
+                    ["Wall area", metric() ? format(wallArea * 0.092903) + " m²" : format(wallArea) + " ft²"]
+                ],
+                note: "A quantity estimate only. Openings add " + format(extraPerOpening, 0) + " studs each; headers, corners, intersections, blocking, and structural requirements must be planned separately."
+            };
         }
     };
 
@@ -325,6 +391,15 @@
             var imperialSheets = { "32": "4 × 8 ft (32 ft²)", "40": "4 × 10 ft (40 ft²)", "48": "4 × 12 ft (48 ft²)" };
             Array.from(sheetArea.options).forEach(function (option) {
                 option.textContent = (currentUnit === "metric" ? metricSheets : imperialSheets)[option.value];
+            });
+        }
+
+        var studSpacing = form.elements.namedItem("studSpacing");
+        if (studSpacing) {
+            Array.from(studSpacing.options).forEach(function (option) {
+                option.textContent = currentUnit === "metric"
+                    ? (option.value === "16" ? "406 mm on center" : "610 mm on center")
+                    : option.value + " inches on center";
             });
         }
     }
@@ -456,11 +531,26 @@
         "board-foot": "lumber boards",
         paver: "patio pavers",
         paint: "interior wall paint",
-        drywall: "drywall sheets"
+        drywall: "drywall sheets",
+        "appliance-fit": "large appliances",
+        framing: "2x4 studs framing lumber"
     };
 
+    function retailerQuery() {
+        if (kind === "appliance-fit") {
+            return form.elements.namedItem("applianceType").value + " appliance";
+        }
+        return retailerSearches[kind];
+    }
+
+    function updateRetailerLinks(panel) {
+        var query = retailerQuery();
+        panel.querySelector(".lowes-link").href = "https://www.lowes.com/search?searchTerm=" + encodeURIComponent(query);
+        panel.querySelector(".home-depot-link").href = "https://www.homedepot.com/s/" + encodeURIComponent(query);
+    }
+
     function addRetailerLinks() {
-        var query = retailerSearches[kind];
+        var query = retailerQuery();
         var sideColumn = document.querySelector(".side-column");
         if (!query || !sideColumn) return;
 
@@ -483,6 +573,10 @@
 
         var ad = sideColumn.querySelector("[data-ad-unit]");
         sideColumn.insertBefore(panel, ad || null);
+        updateRetailerLinks(panel);
+
+        var applianceType = form.elements.namedItem("applianceType");
+        if (applianceType) applianceType.addEventListener("change", function () { updateRetailerLinks(panel); });
     }
 
     addRetailerLinks();
