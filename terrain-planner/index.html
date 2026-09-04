@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>3D Terrain & Ground Slope Planner | BuildEstimate</title>
+    <meta name="description" content="Visualize an elevation grid or local XYZ point data as a browser-based 3D terrain mesh and estimate relief, slope, curvature, cut, and fill.">
+    <link rel="canonical" href="https://tlplayer.github.io/terrain-planner/">
+    <script src="../construction-calculators/theme.js?v=20260904-3"></script>
+    <link rel="stylesheet" href="../construction-calculators/styles.css?v=20260904-6">
+    <link rel="stylesheet" href="../construction-calculators/planner.css?v=20260904-1">
+    <script src="../construction-calculators/config.js"></script>
+    <script src="../construction-calculators/adsense.js"></script>
+</head>
+<body>
+    <header class="site-header"><div class="nav-wrap"><a class="brand" href="../construction-calculators/"><span class="brand-mark" aria-hidden="true">B</span>BuildEstimate</a><nav class="top-nav" aria-label="Primary"><a href="../construction-calculators/">All tools</a><a href="../project-planner/">Projects</a><a href="../structure-builder/">Structure Builder</a></nav></div></header>
+    <main>
+        <div class="page-wrap breadcrumb"><a href="../construction-calculators/">Tools</a> / Terrain Studio</div>
+        <section class="calculator-hero planner-hero"><div class="page-wrap"><p class="eyebrow">Local 3D site visualization</p><h1>Terrain Studio</h1><p>Shape a ground surface from elevations, inspect it in 3D, and get conceptual slope, curvature, cut, and fill quantities—entirely in your browser.</p></div></section>
+        <section class="page-wrap planner-layout">
+            <form class="planner-controls" id="terrain-form">
+                <h2>Site and elevation data</h2>
+                <p>Enter nine spot elevations or import measured XYZ points. Drag the model to orbit and scroll to zoom.</p>
+                <div class="form-grid">
+                    <div class="field field-wide"><label for="terrain-units">Measurement system</label><select id="terrain-units"><option value="imperial">Imperial (feet)</option><option value="metric">Metric (meters)</option></select></div>
+                    <div class="field"><label for="site-width">Site width (<span data-length-unit>ft</span>)</label><input id="site-width" type="number" min="1" step="any" value="60"></div>
+                    <div class="field"><label for="site-depth">Site depth (<span data-length-unit>ft</span>)</label><input id="site-depth" type="number" min="1" step="any" value="80"></div>
+                    <div class="field"><label for="target-elevation">Target level (<span data-elevation-unit>ft</span>)</label><input id="target-elevation" type="number" step="any" value="100.8"></div>
+                    <div class="field"><label for="vertical-scale">Vertical exaggeration</label><input id="vertical-scale" type="number" min="0.2" max="10" step="0.1" value="3"></div>
+                </div>
+                <div class="elevation-grid" aria-label="Three by three elevation grid">
+                    <label>NW<input data-elevation type="number" step="any" value="102"></label><label>N<input data-elevation type="number" step="any" value="101.6"></label><label>NE<input data-elevation type="number" step="any" value="101"></label>
+                    <label>W<input data-elevation type="number" step="any" value="101.5"></label><label>Center<input data-elevation type="number" step="any" value="100.8"></label><label>E<input data-elevation type="number" step="any" value="100.2"></label>
+                    <label>SW<input data-elevation type="number" step="any" value="101"></label><label>S<input data-elevation type="number" step="any" value="100.4"></label><label>SE<input data-elevation type="number" step="any" value="99.6"></label>
+                </div>
+                <div class="planner-actions" style="margin-top:12px"><button class="secondary-button" type="button" data-terrain-preset="rolling">Rolling demo</button><button class="secondary-button" type="button" data-terrain-preset="flat">Level demo</button></div>
+                <div class="upload-box">
+                    <label for="terrain-file">Import XYZ/CSV or grayscale height map</label>
+                    <input id="terrain-file" type="file" accept=".csv,.xyz,.txt,image/*" capture="environment">
+                    <small>XYZ rows must contain x, y, z values. A regular photo has no reliable depth; image mode interprets brightness as relative elevation using the relief below.</small>
+                    <div class="field" style="margin-top:10px"><label for="image-relief">Image relief (<span data-elevation-unit>ft</span>)</label><input id="image-relief" type="number" min="0.01" step="any" value="6"></div>
+                    <p class="file-status" id="terrain-file-status" aria-live="polite">No file selected. Files stay on this device.</p>
+                </div>
+                <div class="notice-card"><strong>Input quality matters.</strong> Phone LiDAR should first be exported as scaled XYZ/CSV. A single ordinary photo cannot establish real elevation or scale.</div>
+            </form>
+            <div class="viewer-stack">
+                <section class="viewer-card" aria-labelledby="terrain-view-title">
+                    <div class="viewer-card-header"><div><h2 id="terrain-view-title">Interactive ground model</h2><p class="viewer-copy" id="terrain-source-label">Nine-point elevation surface</p></div><button class="secondary-button" type="button" id="terrain-reset-view">Reset view</button></div>
+                    <canvas class="three-view" id="terrain-canvas" aria-label="Interactive three-dimensional terrain mesh"></canvas>
+                    <p class="viewer-help">Drag to rotate · scroll or pinch to zoom · brighter green indicates higher ground</p>
+                    <div class="stat-grid" id="terrain-stats"></div>
+                </section>
+                <section class="planner-output">
+                    <div class="planner-output-head"><div><p class="eyebrow">Conceptual grading</p><h2>Surface analysis</h2><p>Calculated from the currently displayed grid.</p></div><div class="planner-actions"><button class="secondary-button" type="button" id="terrain-print">Print</button></div></div>
+                    <div id="terrain-analysis"></div>
+                    <div class="notice-card"><strong>Not a survey or grading plan.</strong> Sparse points, vegetation, camera distortion, drainage constraints, soil expansion, compaction, retaining conditions, and local requirements can materially change real earthwork.</div>
+                </section>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer"><div class="footer-wrap"><p>© 2026 BuildEstimate. Conceptual planning only.</p><nav class="footer-links"><a href="../project-planner/">Project Planner</a><a href="../structure-builder/">Structure Builder</a><a href="../construction-calculators/privacy.html">Privacy</a></nav></div></footer>
+    <script src="../construction-calculators/visualizer.js?v=20260904-1"></script>
+    <script src="terrain.js?v=20260904-1"></script>
+</body>
+</html>

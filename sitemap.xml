@@ -2,6 +2,9 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://tlplayer.github.io/</loc></url>
   <url><loc>https://tlplayer.github.io/construction-calculators/</loc><priority>0.9</priority></url>
+  <url><loc>https://tlplayer.github.io/project-planner/</loc><priority>0.9</priority></url>
+  <url><loc>https://tlplayer.github.io/terrain-planner/</loc><priority>0.9</priority></url>
+  <url><loc>https://tlplayer.github.io/structure-builder/</loc><priority>0.9</priority></url>
   <url><loc>https://tlplayer.github.io/gravel-calculator/</loc><priority>1.0</priority></url>
   <url><loc>https://tlplayer.github.io/fence-calculator/</loc><priority>0.8</priority></url>
   <url><loc>https://tlplayer.github.io/mulch-calculator/</loc><priority>0.8</priority></url>

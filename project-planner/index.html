@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Home Improvement Project Material Planner | BuildEstimate</title>
+    <meta name="description" content="Plan common home improvement projects with phase-by-phase material lists and retailer searches for patios, landscaping, sod, fences, and room refreshes.">
+    <link rel="canonical" href="https://tlplayer.github.io/project-planner/">
+    <script src="../construction-calculators/theme.js?v=20260904-3"></script>
+    <link rel="stylesheet" href="../construction-calculators/styles.css?v=20260904-6"><link rel="stylesheet" href="../construction-calculators/planner.css?v=20260904-1">
+    <script src="../construction-calculators/config.js"></script><script src="../construction-calculators/adsense.js"></script>
+</head>
+<body>
+    <header class="site-header"><div class="nav-wrap"><a class="brand" href="../construction-calculators/"><span class="brand-mark" aria-hidden="true">B</span>BuildEstimate</a><nav class="top-nav" aria-label="Primary"><a href="../construction-calculators/">All tools</a><a href="../terrain-planner/">Terrain</a><a href="../structure-builder/">Structure Builder</a></nav></div></header>
+    <main>
+        <div class="page-wrap breadcrumb"><a href="../construction-calculators/">Tools</a> / Project Planner</div>
+        <section class="calculator-hero planner-hero"><div class="page-wrap"><p class="eyebrow">From idea to shopping list</p><h1>Home Project Planner</h1><p>Choose a common improvement, enter rough dimensions, and get a practical phase-by-phase material breakdown with places to compare products.</p></div></section>
+        <section class="page-wrap planner-layout">
+            <form class="planner-controls" id="project-form">
+                <h2>Choose your project</h2><p>These are quantity plans, not promises of property value. Local quality, design, permits, and market conditions matter.</p>
+                <div class="project-picker" id="project-picker">
+                    <button class="project-choice is-active" type="button" data-project="patio">Paver patio<span>Surface, base, sand, edging</span></button>
+                    <button class="project-choice" type="button" data-project="landscape">Landscape refresh<span>Mulch, fabric, soil, edging</span></button>
+                    <button class="project-choice" type="button" data-project="sod">New sod lawn<span>Sod, soil, fertilizer</span></button>
+                    <button class="project-choice" type="button" data-project="fence">Privacy fence<span>Panels, posts, concrete, hardware</span></button>
+                    <button class="project-choice" type="button" data-project="room">Room refresh<span>Paint, flooring, trim</span></button>
+                </div>
+                <div class="form-grid" style="margin-top:18px">
+                    <div class="field field-wide"><label for="project-name">Project name</label><input id="project-name" name="projectName" value="Backyard patio"></div>
+                    <div class="field field-wide"><label for="project-units">Measurement system</label><select id="project-units" name="units"><option value="imperial">Imperial</option><option value="metric">Metric</option></select></div>
+                </div>
+                <div class="form-grid" id="project-fields"></div>
+                <div class="planner-actions" style="margin-top:20px"><button class="calculate-button" style="margin:0;flex:1" type="button" id="save-project">Save on this device</button></div>
+                <div class="saved-projects"><h3>Saved projects</h3><div class="saved-project-list" id="saved-project-list"><p class="planner-muted">No saved projects yet.</p></div></div>
+            </form>
+            <div class="viewer-stack">
+                <section class="planner-output">
+                    <div class="planner-output-head"><div><span class="value-note">Common home improvement</span><h2 style="margin-top:10px" id="project-result-title">Backyard patio</h2><p id="project-summary"></p></div><div class="planner-actions"><button class="secondary-button" type="button" id="project-copy">Copy list</button><button class="secondary-button" type="button" id="project-print">Print</button></div></div>
+                    <div class="stat-grid" id="project-stats" style="padding:0 0 8px"></div>
+                    <div id="project-bom"></div>
+                    <div class="notice-card"><strong>Verify before purchase.</strong> Conditions below the surface, manufacturer instructions, layout, product dimensions, delivery minimums, permits, utilities, drainage, and local requirements can change the order.</div>
+                </section>
+                <aside class="side-panel"><h2>Planning sequence</h2><ol><li>Measure the finished project area.</li><li>Confirm excavation, drainage, and preparation.</li><li>Check actual product coverage and package size.</li><li>Compare complete project totals, delivery, and waste.</li><li>Verify requirements with qualified local professionals.</li></ol></aside>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer"><div class="footer-wrap"><p>© 2026 BuildEstimate. Planning estimates only.</p><nav class="footer-links"><a href="../terrain-planner/">Terrain Studio</a><a href="../structure-builder/">Structure Builder</a><a href="../construction-calculators/privacy.html">Privacy</a></nav></div></footer>
+    <script src="project-planner.js?v=20260904-1"></script>
+</body>
+</html>

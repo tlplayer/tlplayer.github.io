@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>3D Structure Builder & Material Estimator | BuildEstimate</title>
+    <meta name="description" content="Configure a shed, garage, house, or workshop in 3D and generate a conceptual foundation, framing, roof, exterior, and interior material list.">
+    <link rel="canonical" href="https://tlplayer.github.io/structure-builder/">
+    <script src="../construction-calculators/theme.js?v=20260904-3"></script>
+    <link rel="stylesheet" href="../construction-calculators/styles.css?v=20260904-6">
+    <link rel="stylesheet" href="../construction-calculators/planner.css?v=20260904-1">
+    <script src="../construction-calculators/config.js"></script><script src="../construction-calculators/adsense.js"></script>
+</head>
+<body>
+    <header class="site-header"><div class="nav-wrap"><a class="brand" href="../construction-calculators/"><span class="brand-mark" aria-hidden="true">B</span>BuildEstimate</a><nav class="top-nav" aria-label="Primary"><a href="../construction-calculators/">All tools</a><a href="../project-planner/">Projects</a><a href="../terrain-planner/">Terrain</a></nav></div></header>
+    <main>
+        <div class="page-wrap breadcrumb"><a href="../construction-calculators/">Tools</a> / Structure Builder</div>
+        <section class="calculator-hero planner-hero"><div class="page-wrap"><p class="eyebrow">Geometry → assemblies → materials</p><h1>Structure Builder</h1><p>Configure a simple building, orbit the conceptual 3D massing, and inspect a phase-by-phase material estimate.</p></div></section>
+        <section class="page-wrap planner-layout">
+            <form class="planner-controls" id="structure-form">
+                <h2>Building configuration</h2>
+                <p>Start with a preset, then change dimensions and assemblies. The model and bill of materials update instantly.</p>
+                <div class="form-grid">
+                    <div class="field field-wide"><label for="building-type">Structure</label><select id="building-type" name="type"><option value="shed">Shed</option><option value="garage" selected>Garage</option><option value="house">House</option><option value="workshop">Workshop</option></select></div>
+                    <div class="field field-wide"><label for="structure-units">Measurement system</label><select id="structure-units" name="units"><option value="imperial">Imperial (feet)</option><option value="metric">Metric (meters)</option></select></div>
+                    <div class="field"><label for="building-length">Length (<span data-structure-unit>ft</span>)</label><input id="building-length" name="length" type="number" min="4" step="any" value="24"></div>
+                    <div class="field"><label for="building-width">Width (<span data-structure-unit>ft</span>)</label><input id="building-width" name="width" type="number" min="4" step="any" value="24"></div>
+                    <div class="field"><label for="building-stories">Stories</label><select id="building-stories" name="stories"><option>1</option><option>2</option><option>3</option></select></div>
+                    <div class="field"><label for="wall-height">Wall height (<span data-structure-unit>ft</span>)</label><input id="wall-height" name="wallHeight" type="number" min="6" step="any" value="9"></div>
+                    <div class="field"><label for="framing-type">Wall framing</label><select id="framing-type" name="framing"><option value="2x4">2×4 wood</option><option value="2x6">2×6 wood</option><option value="steel">Light-gauge steel</option></select></div>
+                    <div class="field"><label for="foundation-type">Foundation</label><select id="foundation-type" name="foundation"><option value="slab">Concrete slab</option><option value="pier">Conceptual piers</option><option value="none">Existing / none</option></select></div>
+                    <div class="field"><label for="roof-type">Roof</label><select id="roof-type" name="roof"><option value="gable">Gable</option><option value="hip">Hip</option><option value="flat">Low-slope / flat</option></select></div>
+                    <div class="field"><label for="roof-pitch">Roof pitch (x:12)</label><input id="roof-pitch" name="pitch" type="number" min="0" max="18" step="any" value="6"></div>
+                    <div class="field"><label for="exterior-finish">Exterior finish</label><select id="exterior-finish" name="finish"><option value="vinyl">Vinyl siding</option><option value="fiber-cement">Fiber cement siding</option><option value="wood">Engineered wood siding</option><option value="metal">Metal panels</option></select></div>
+                    <div class="field"><label for="window-count">Windows</label><input id="window-count" name="windows" type="number" min="0" step="1" value="4"></div>
+                    <div class="field"><label for="door-count">Exterior doors</label><input id="door-count" name="doors" type="number" min="0" step="1" value="2"></div>
+                    <div class="field field-wide"><label for="structure-waste">Material allowance (%)</label><input id="structure-waste" name="waste" type="number" min="0" max="30" step="any" value="10"></div>
+                </div>
+                <div class="notice-card"><strong>Concept only.</strong> This tool does not size beams, rafters, headers, columns, reinforcement, foundations, connections, egress, fire protection, or MEP systems.</div>
+            </form>
+            <div class="viewer-stack">
+                <section class="viewer-card" aria-labelledby="structure-view-title">
+                    <div class="viewer-card-header"><div><h2 id="structure-view-title">Interactive massing model</h2><p class="viewer-copy" id="structure-model-label">One-story garage · gable roof</p></div><button class="secondary-button" type="button" id="structure-reset-view">Reset view</button></div>
+                    <canvas class="three-view" id="structure-canvas" aria-label="Interactive three-dimensional structure model"></canvas>
+                    <p class="viewer-help">Drag to rotate · scroll or pinch to zoom · model geometry is conceptual</p>
+                    <div class="stat-grid" id="structure-stats"></div>
+                </section>
+                <section class="planner-output">
+                    <div class="planner-output-head"><div><p class="eyebrow">Conceptual bill of materials</p><h2>Assembly breakdown</h2><p id="structure-summary"></p></div><div class="planner-actions"><button class="secondary-button" type="button" id="structure-copy">Copy</button><button class="secondary-button" type="button" id="structure-print">Print</button></div></div>
+                    <div id="structure-bom"></div>
+                    <div class="notice-card"><strong>Planning estimate only.</strong> Confirm plans, spans, loads, code requirements, site conditions, product coverage, openings, and waste with qualified professionals and suppliers.</div>
+                </section>
+            </div>
+        </section>
+    </main>
+    <footer class="site-footer"><div class="footer-wrap"><p>© 2026 BuildEstimate. Not construction documentation.</p><nav class="footer-links"><a href="../project-planner/">Project Planner</a><a href="../terrain-planner/">Terrain Studio</a><a href="../construction-calculators/privacy.html">Privacy</a></nav></div></footer>
+    <script src="../construction-calculators/visualizer.js?v=20260904-1"></script>
+    <script src="structure.js?v=20260904-1"></script>
+</body>
+</html>
