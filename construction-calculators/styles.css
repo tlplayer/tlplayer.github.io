@@ -256,6 +256,31 @@ h1 {
 
 .calculator-form { padding: 30px; }
 
+.unit-system-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin: -4px 0 22px;
+    border-bottom: 1px solid var(--line);
+    padding: 0 0 18px;
+}
+
+.unit-system-field label {
+    font-size: .88rem;
+    font-weight: 800;
+}
+
+.unit-system-field select {
+    width: min(180px, 50%);
+    height: 42px;
+    border: 1px solid #bbc5bc;
+    border-radius: 10px;
+    background: var(--input);
+    color: var(--ink);
+    padding: 0 12px;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -513,6 +538,7 @@ h1 {
     .calculator-form, .result-panel { padding: 22px 18px; }
     .calculator-shell { border-radius: 16px; }
     .field input, .field select { height: 52px; font-size: 16px; }
+    .unit-system-field select { height: 48px; font-size: 16px; }
     .calculate-button { min-height: 52px; }
     .result-details { grid-template-columns: 1fr; }
     .primary-result { overflow-wrap: anywhere; }

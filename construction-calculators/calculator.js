@@ -6,9 +6,93 @@
 
     var kind = form.dataset.calculatorForm;
     var result = document.querySelector("[data-calculator-result]");
+    var currentUnit = "imperial";
+
+    var unitFactors = {
+        foot: 0.3048,
+        centimeter: 2.54,
+        millimeter: 25.4,
+        area: 0.092903,
+        volume: 28.3168,
+        density: 1186.55284,
+        tonne: 0.90718474,
+        pricePerTonne: 1.10231131,
+        paintCoverage: 0.0245424
+    };
+
+    function unit(unitName, imperialLabel, metricLabel) {
+        return { unit: unitName, imperial: imperialLabel, metric: metricLabel };
+    }
+
+    var unitMaps = {
+        gravel: {
+            length: unit("foot", "Length (feet)", "Length (meters)"),
+            width: unit("foot", "Width (feet)", "Width (meters)"),
+            depth: unit("centimeter", "Depth (inches)", "Depth (centimeters)"),
+            density: unit("density", "Gravel density (tons/yd³)", "Gravel density (kg/m³)"),
+            bagVolume: unit("volume", "Bag volume (ft³)", "Bag volume (liters)"),
+            truckCapacity: unit("tonne", "Truck capacity (tons)", "Truck capacity (metric tonnes)"),
+            pricePerTon: unit("pricePerTonne", "Price per ton ($)", "Price per metric tonne ($)")
+        },
+        "river-rock": {
+            length: unit("foot", "Length (feet)", "Length (meters)"),
+            width: unit("foot", "Width (feet)", "Width (meters)"),
+            depth: unit("centimeter", "Depth (inches)", "Depth (centimeters)"),
+            density: unit("density", "Rock density (tons/yd³)", "Rock density (kg/m³)")
+        },
+        topsoil: {
+            length: unit("foot", "Length (feet)", "Length (meters)"),
+            width: unit("foot", "Width (feet)", "Width (meters)"),
+            depth: unit("centimeter", "Depth (inches)", "Depth (centimeters)"),
+            density: unit("density", "Density (tons/yd³)", "Density (kg/m³)")
+        },
+        mulch: {
+            length: unit("foot", "Bed length (feet)", "Bed length (meters)"),
+            width: unit("foot", "Bed width (feet)", "Bed width (meters)"),
+            depth: unit("centimeter", "Mulch depth (inches)", "Mulch depth (centimeters)")
+        },
+        fence: {
+            length: unit("foot", "Fence length (feet)", "Fence length (meters)"),
+            postSpacing: unit("foot", "Maximum post spacing (feet)", "Maximum post spacing (meters)"),
+            panelWidth: unit("foot", "Panel width (feet)", "Panel width (meters)"),
+            gateWidth: unit("foot", "Total gate width (feet)", "Total gate width (meters)")
+        },
+        "roof-pitch": {
+            rise: unit("centimeter", "Rise (inches)", "Rise (centimeters)"),
+            run: unit("centimeter", "Run (inches)", "Run (centimeters)")
+        },
+        "board-foot": {
+            thickness: unit("millimeter", "Thickness (inches)", "Thickness (millimeters)"),
+            width: unit("millimeter", "Width (inches)", "Width (millimeters)"),
+            length: unit("foot", "Length (feet)", "Length (meters)")
+        },
+        paver: {
+            length: unit("foot", "Project length (feet)", "Project length (meters)"),
+            width: unit("foot", "Project width (feet)", "Project width (meters)"),
+            paverLength: unit("millimeter", "Paver length (inches)", "Paver length (millimeters)"),
+            paverWidth: unit("millimeter", "Paver width (inches)", "Paver width (millimeters)")
+        },
+        paint: {
+            length: unit("foot", "Room length (feet)", "Room length (meters)"),
+            width: unit("foot", "Room width (feet)", "Room width (meters)"),
+            height: unit("foot", "Wall height (feet)", "Wall height (meters)"),
+            coverage: unit("paintCoverage", "Coverage (ft² per gallon)", "Coverage (m² per liter)")
+        },
+        drywall: {
+            length: unit("foot", "Room length (feet)", "Room length (meters)"),
+            width: unit("foot", "Room width (feet)", "Room width (meters)"),
+            height: unit("foot", "Wall height (feet)", "Wall height (meters)")
+        }
+    };
+
+    function toBaseValue(name, number) {
+        var definition = (unitMaps[kind] || {})[name];
+        if (currentUnit !== "metric" || !definition) return number;
+        return number / unitFactors[definition.unit];
+    }
 
     function value(name) {
-        return Number(form.elements.namedItem(name).value);
+        return toBaseValue(name, Number(form.elements.namedItem(name).value));
     }
 
     function checked(name) {
@@ -20,13 +104,22 @@
         var control = form.elements.namedItem(name);
         if (!control) return fallback;
         var number = Number(control.value);
-        return Number.isFinite(number) ? number : fallback;
+        return Number.isFinite(number) ? toBaseValue(name, number) : fallback;
+    }
+
+    function metric() {
+        return currentUnit === "metric";
     }
 
     function format(number, digits) {
         return Number(number).toLocaleString("en-US", {
             maximumFractionDigits: digits == null ? 2 : digits
         });
+    }
+
+    function roundUp(number) {
+        var tolerance = Math.max(1, Math.abs(number)) * 1e-12;
+        return Math.ceil(number - tolerance);
     }
 
     function requirePositive(names) {
@@ -43,22 +136,22 @@
         var orderYards = cubicYards * (1 + waste);
         var tons = orderYards * value("density");
         var details = [
-            ["Estimated weight", format(tons) + " tons"],
-            ["Volume", format(cubicFeet) + " ft³"],
-            ["Before overage", format(cubicYards) + " yd³"]
+            ["Estimated weight", metric() ? format(tons * 0.90718474) + " t" : format(tons) + " tons"],
+            ["Volume", metric() ? format(cubicFeet * 0.02831685) + " m³" : format(cubicFeet) + " ft³"],
+            ["Before overage", metric() ? format(cubicYards * 0.76455486) + " m³" : format(cubicYards) + " yd³"]
         ];
 
         if (label === "Gravel") {
             var bagVolume = Math.max(0, optionalValue("bagVolume", 0));
             var truckCapacity = Math.max(0, optionalValue("truckCapacity", 0));
             var pricePerTon = Math.max(0, optionalValue("pricePerTon", 0));
-            if (bagVolume) details.push(["Bagged option", format(Math.ceil(orderYards * 27 / bagVolume), 0) + " bags"]);
-            if (truckCapacity) details.push(["Truckloads", format(Math.ceil(tons / truckCapacity), 0)]);
+            if (bagVolume) details.push(["Bagged option", format(roundUp(orderYards * 27 / bagVolume), 0) + " bags"]);
+            if (truckCapacity) details.push(["Truckloads", format(roundUp(tons / truckCapacity), 0)]);
             if (pricePerTon) details.push(["Estimated material cost", "$" + format(tons * pricePerTon)]);
         }
 
         return {
-            primary: format(orderYards) + " cubic yards",
+            primary: metric() ? format(orderYards * 0.76455486) + " cubic meters" : format(orderYards) + " cubic yards",
             details: details,
             note: "Estimate includes " + format(waste * 100, 1) + "% extra material. Actual " + label.toLowerCase() + " density varies by product and moisture."
         };
@@ -73,13 +166,13 @@
             var waste = Math.max(0, value("waste") || 0) / 100;
             var cubicFeet = value("length") * value("width") * (value("depth") / 12) * (1 + waste);
             var cubicYards = cubicFeet / 27;
-            var bags = Math.ceil(cubicFeet / value("bagSize"));
+            var bags = roundUp(cubicFeet / value("bagSize"));
             return {
-                primary: format(cubicYards) + " cubic yards",
+                primary: metric() ? format(cubicYards * 0.76455486) + " cubic meters" : format(cubicYards) + " cubic yards",
                 details: [
                     ["Bags needed", format(bags, 0) + " bags"],
-                    ["Volume", format(cubicFeet) + " ft³"],
-                    ["Coverage", format(value("length") * value("width"), 0) + " ft²"]
+                    ["Volume", metric() ? format(cubicFeet * 28.3168) + " L" : format(cubicFeet) + " ft³"],
+                    ["Coverage", metric() ? format(value("length") * value("width") * 0.092903) + " m²" : format(value("length") * value("width"), 0) + " ft²"]
                 ],
                 note: "Bag count is rounded up and includes " + format(waste * 100, 1) + "% extra material."
             };
@@ -88,10 +181,10 @@
             if (!requirePositive(["length", "postSpacing", "panelWidth", "bagsPerPost"])) return null;
             var gateWidth = Math.max(0, value("gateWidth") || 0);
             var fenceLength = Math.max(0, value("length") - gateWidth);
-            var sections = Math.ceil(fenceLength / value("postSpacing"));
+            var sections = roundUp(fenceLength / value("postSpacing"));
             var posts = sections + 1 + (gateWidth > 0 ? 1 : 0);
-            var panels = Math.ceil(fenceLength / value("panelWidth"));
-            var concrete = Math.ceil(posts * value("bagsPerPost"));
+            var panels = roundUp(fenceLength / value("panelWidth"));
+            var concrete = roundUp(posts * value("bagsPerPost"));
             return {
                 primary: format(posts, 0) + " fence posts",
                 details: [
@@ -123,11 +216,11 @@
             var each = value("thickness") * value("width") * value("length") / 12;
             var total = each * value("quantity");
             return {
-                primary: format(total) + " board feet",
+                primary: metric() ? format(total * 0.00235974, 4) + " cubic meters" : format(total) + " board feet",
                 details: [
-                    ["Per board", format(each) + " bd ft"],
+                    ["Per board", metric() ? format(each * 0.00235974, 4) + " m³" : format(each) + " bd ft"],
                     ["Quantity", format(value("quantity"), 0) + " boards"],
-                    ["Total length", format(value("length") * value("quantity")) + " ft"]
+                    ["Total length", metric() ? format(value("length") * value("quantity") * 0.3048) + " m" : format(value("length") * value("quantity")) + " ft"]
                 ],
                 note: "Use nominal thickness and width for rough lumber; use actual dimensions when pricing surfaced lumber by volume."
             };
@@ -137,13 +230,13 @@
             var area = value("length") * value("width");
             var waste = Math.max(0, value("waste") || 0) / 100;
             var paverArea = value("paverLength") * value("paverWidth") / 144;
-            var count = Math.ceil(area * (1 + waste) / paverArea);
+            var count = roundUp(area * (1 + waste) / paverArea);
             return {
                 primary: format(count, 0) + " pavers",
                 details: [
-                    ["Project area", format(area) + " ft²"],
-                    ["Order area", format(area * (1 + waste)) + " ft²"],
-                    ["Each paver", format(paverArea, 3) + " ft²"]
+                    ["Project area", metric() ? format(area * 0.092903) + " m²" : format(area) + " ft²"],
+                    ["Order area", metric() ? format(area * (1 + waste) * 0.092903) + " m²" : format(area * (1 + waste)) + " ft²"],
+                    ["Each paver", metric() ? format(paverArea * 0.092903, 4) + " m²" : format(paverArea, 3) + " ft²"]
                 ],
                 note: "Count includes " + format(waste * 100, 1) + "% for cuts and breakage. Pattern layouts may require more overage."
             };
@@ -156,11 +249,11 @@
             var coatedArea = paintable * value("coats");
             var exactGallons = coatedArea / value("coverage");
             return {
-                primary: format(Math.ceil(exactGallons), 0) + " gallons of paint",
+                primary: metric() ? format(roundUp(exactGallons * 3.78541), 0) + " liters of paint" : format(roundUp(exactGallons), 0) + " gallons of paint",
                 details: [
-                    ["Exact estimate", format(exactGallons) + " gal"],
-                    ["Paintable area", format(paintable, 0) + " ft²"],
-                    ["Coated area", format(coatedArea, 0) + " ft²"]
+                    ["Exact estimate", metric() ? format(exactGallons * 3.78541) + " L" : format(exactGallons) + " gal"],
+                    ["Paintable area", metric() ? format(paintable * 0.092903) + " m²" : format(paintable, 0) + " ft²"],
+                    ["Coated area", metric() ? format(coatedArea * 0.092903) + " m²" : format(coatedArea, 0) + " ft²"]
                 ],
                 note: "Uses 21 ft² per door and 15 ft² per window. Textured or porous walls can require additional paint."
             };
@@ -171,13 +264,13 @@
             var ceilingArea = checked("includeCeiling") ? value("length") * value("width") : 0;
             var totalArea = wallArea + ceilingArea;
             var waste = Math.max(0, value("waste") || 0) / 100;
-            var sheets = Math.ceil(totalArea * (1 + waste) / value("sheetArea"));
+            var sheets = roundUp(totalArea * (1 + waste) / value("sheetArea"));
             return {
                 primary: format(sheets, 0) + " drywall sheets",
                 details: [
-                    ["Surface area", format(totalArea, 0) + " ft²"],
+                    ["Surface area", metric() ? format(totalArea * 0.092903) + " m²" : format(totalArea, 0) + " ft²"],
                     ["Drywall screws", format(sheets * 32, 0)],
-                    ["Joint compound", format(totalArea * .053, 0) + " lb"]
+                    ["Joint compound", metric() ? format(totalArea * .053 * 0.453592) + " kg" : format(totalArea * .053, 0) + " lb"]
                 ],
                 note: "Sheet count includes " + format(waste * 100, 1) + "% overage. Openings are left in as a practical cutting allowance."
             };
@@ -204,6 +297,74 @@
                 '<button type="button" data-share-result>Share</button>' +
                 '<button type="button" data-print-result>Print</button>' +
             '</div>';
+    }
+
+    function formatControlValue(number) {
+        return String(Number(number.toFixed(4)));
+    }
+
+    function updateUnitLabels() {
+        var definitions = unitMaps[kind] || {};
+        Object.keys(definitions).forEach(function (name) {
+            var label = form.querySelector('label[for="' + name + '"]');
+            if (label) label.textContent = definitions[name][currentUnit];
+        });
+
+        var bagSize = form.elements.namedItem("bagSize");
+        if (bagSize) {
+            Array.from(bagSize.options).forEach(function (option) {
+                option.textContent = currentUnit === "metric"
+                    ? format(Number(option.value) * 28.3168, 1) + " L bag"
+                    : option.value + " ft³ bag";
+            });
+        }
+
+        var sheetArea = form.elements.namedItem("sheetArea");
+        if (sheetArea) {
+            var metricSheets = { "32": "1.2 × 2.4 m (2.97 m²)", "40": "1.2 × 3.0 m (3.72 m²)", "48": "1.2 × 3.7 m (4.46 m²)" };
+            var imperialSheets = { "32": "4 × 8 ft (32 ft²)", "40": "4 × 10 ft (40 ft²)", "48": "4 × 12 ft (48 ft²)" };
+            Array.from(sheetArea.options).forEach(function (option) {
+                option.textContent = (currentUnit === "metric" ? metricSheets : imperialSheets)[option.value];
+            });
+        }
+    }
+
+    function switchUnitSystem(nextUnit) {
+        if (nextUnit === currentUnit) return;
+        var definitions = unitMaps[kind] || {};
+        Object.keys(definitions).forEach(function (name) {
+            var control = form.elements.namedItem(name);
+            if (!control || control.tagName === "SELECT" || !Number.isFinite(Number(control.value))) return;
+            var factor = unitFactors[definitions[name].unit];
+            control.value = formatControlValue(nextUnit === "metric" ? Number(control.value) * factor : Number(control.value) / factor);
+        });
+        currentUnit = nextUnit;
+        updateUnitLabels();
+        calculate();
+    }
+
+    function setupUnitSystem() {
+        var wrapper = document.createElement("div");
+        wrapper.className = "unit-system-field";
+        wrapper.innerHTML = '<label for="unit-system">Measurement system</label><select id="unit-system" name="units"><option value="imperial">Imperial</option><option value="metric">Metric</option></select>';
+        form.insertBefore(wrapper, form.firstChild);
+
+        var selector = wrapper.querySelector("select");
+        var params = new URLSearchParams(window.location.search);
+        var requestedUnit = params.get("units") === "metric" ? "metric" : "imperial";
+        selector.value = requestedUnit;
+
+        if (requestedUnit === "metric") {
+            var definitions = unitMaps[kind] || {};
+            Object.keys(definitions).forEach(function (name) {
+                var control = form.elements.namedItem(name);
+                if (!control || params.has(name) || control.tagName === "SELECT") return;
+                control.value = formatControlValue(Number(control.value) * unitFactors[definitions[name].unit]);
+            });
+        }
+
+        currentUnit = requestedUnit;
+        selector.addEventListener("change", function () { switchUnitSystem(selector.value); });
     }
 
     function hydrateFromUrl() {
@@ -241,7 +402,9 @@
         updateShareUrl();
     }
 
+    setupUnitSystem();
     hydrateFromUrl();
+    updateUnitLabels();
     form.addEventListener("submit", calculate);
     form.addEventListener("input", calculate);
     result.addEventListener("click", function (event) {
@@ -276,7 +439,7 @@
         var gravelDepths = { driveway: 4, walkway: 3, "french-drain": 12, "patio-base": 4, "garden-path": 3, "parking-pad": 6 };
         projectPreset.addEventListener("change", function () {
             var depth = gravelDepths[projectPreset.value];
-            if (depth) form.elements.namedItem("depth").value = depth;
+            if (depth) form.elements.namedItem("depth").value = metric() ? formatControlValue(depth * 2.54) : depth;
             calculate();
         });
     }
