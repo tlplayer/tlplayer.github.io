@@ -20,10 +20,10 @@
         var button = document.createElement("button");
         button.className = "theme-toggle";
         button.type = "button";
-        button.innerHTML = '<span class="theme-icon theme-sun" aria-hidden="true">☀</span><span class="theme-icon theme-moon" aria-hidden="true">☾</span>';
 
         function updateButton() {
             var isDark = root.dataset.theme === "dark";
+            button.textContent = isDark ? "☀" : "☾";
             button.setAttribute("aria-pressed", String(isDark));
             button.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
             button.title = isDark ? "Switch to light mode" : "Switch to dark mode";

@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gravel Calculator — Cubic Yards and Tons</title><meta name="description" content="Calculate how much gravel you need in cubic yards, cubic feet, and tons for a driveway, path, or landscaping project.">
-<link rel="canonical" href="https://tlplayer.github.io/gravel-calculator/"><script src="../construction-calculators/theme.js"></script><link rel="stylesheet" href="../construction-calculators/styles.css">
+<title>Gravel Calculator — Tons, Yards, Bags & Cost</title><meta name="description" content="Calculate how much gravel you need in cubic yards, tons, bags, truckloads, and estimated material cost for driveways and landscaping.">
+<link rel="canonical" href="https://tlplayer.github.io/gravel-calculator/"><script src="../construction-calculators/theme.js?v=20260904-2"></script><link rel="stylesheet" href="../construction-calculators/styles.css?v=20260904-2">
 <script src="../construction-calculators/config.js"></script><script src="../construction-calculators/adsense.js"></script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Gravel Calculator","applicationCategory":"UtilitiesApplication","operatingSystem":"Any","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://tlplayer.github.io/gravel-calculator/"}</script>
 </head><body>
@@ -10,12 +10,11 @@
 <section class="calculator-hero"><div class="page-wrap"><p class="eyebrow">Landscaping calculator</p><h1>Gravel Calculator</h1><p>Estimate gravel volume and delivery weight for driveways, walkways, drainage beds, and landscaping.</p></div></section>
 <section class="page-wrap calculator-layout">
 <div class="calculator-shell"><form class="calculator-form" data-calculator-form="gravel"><div class="form-grid">
+<div class="field field-wide"><label for="project">Project preset</label><select id="project" name="project"><option value="driveway">Driveway</option><option value="walkway">Walkway</option><option value="french-drain">French drain</option><option value="patio-base">Patio base</option><option value="garden-path">Garden path</option><option value="parking-pad">Parking pad</option></select></div>
 <div class="field"><label for="length">Length (feet)</label><input id="length" name="length" type="number" min="0" step="any" value="30" required></div>
 <div class="field"><label for="width">Width (feet)</label><input id="width" name="width" type="number" min="0" step="any" value="10" required></div>
 <div class="field"><label for="depth">Depth (inches)</label><input id="depth" name="depth" type="number" min="0" step="any" value="4" required></div>
-<div class="field"><label for="density">Gravel density (tons/yd³)</label><input id="density" name="density" type="number" min="0" step="any" value="1.4" required><small>1.4 is a practical general estimate</small></div>
-<div class="field"><label for="waste">Extra material (%)</label><input id="waste" name="waste" type="number" min="0" step="any" value="10"></div>
-</div><button class="calculate-button" type="submit">Calculate gravel</button></form><div class="result-panel" data-calculator-result aria-live="polite"></div></div>
+</div><details class="advanced-options"><summary>Advanced purchase options</summary><div class="form-grid"><div class="field"><label for="density">Gravel density (tons/yd³)</label><input id="density" name="density" type="number" min="0" step="any" value="1.4" required><small>1.4 is a planning estimate; ask your supplier</small></div><div class="field"><label for="waste">Compaction / extra (%)</label><input id="waste" name="waste" type="number" min="0" step="any" value="10"></div><div class="field"><label for="bagVolume">Bag volume (ft³)</label><input id="bagVolume" name="bagVolume" type="number" min="0" step="any" value="0.5"></div><div class="field"><label for="truckCapacity">Truck capacity (tons)</label><input id="truckCapacity" name="truckCapacity" type="number" min="0" step="any" value="10"></div><div class="field"><label for="pricePerTon">Price per ton ($)</label><input id="pricePerTon" name="pricePerTon" type="number" min="0" step="any" value="0" placeholder="Optional"></div></div></details><button class="calculate-button" type="submit">Calculate gravel</button></form><div class="result-panel" data-calculator-result aria-live="polite"></div></div>
 <aside class="side-column"><div class="side-panel"><h2>Before ordering</h2><ul><li>Measure the finished compacted depth.</li><li>Use your supplier's density when available.</li><li>Allow 5–10% for compaction and uneven grade.</li></ul></div><div class="ad-unit" data-ad-unit aria-label="Advertisement"></div></aside>
 </section>
 <section class="page-wrap content-section"><article class="article-copy">

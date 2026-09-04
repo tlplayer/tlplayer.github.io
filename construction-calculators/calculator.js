@@ -16,6 +16,13 @@
         return Boolean(control && control.checked);
     }
 
+    function optionalValue(name, fallback) {
+        var control = form.elements.namedItem(name);
+        if (!control) return fallback;
+        var number = Number(control.value);
+        return Number.isFinite(number) ? number : fallback;
+    }
+
     function format(number, digits) {
         return Number(number).toLocaleString("en-US", {
             maximumFractionDigits: digits == null ? 2 : digits
@@ -35,13 +42,24 @@
         var cubicYards = cubicFeet / 27;
         var orderYards = cubicYards * (1 + waste);
         var tons = orderYards * value("density");
+        var details = [
+            ["Estimated weight", format(tons) + " tons"],
+            ["Volume", format(cubicFeet) + " ft³"],
+            ["Before overage", format(cubicYards) + " yd³"]
+        ];
+
+        if (label === "Gravel") {
+            var bagVolume = Math.max(0, optionalValue("bagVolume", 0));
+            var truckCapacity = Math.max(0, optionalValue("truckCapacity", 0));
+            var pricePerTon = Math.max(0, optionalValue("pricePerTon", 0));
+            if (bagVolume) details.push(["Bagged option", format(Math.ceil(orderYards * 27 / bagVolume), 0) + " bags"]);
+            if (truckCapacity) details.push(["Truckloads", format(Math.ceil(tons / truckCapacity), 0)]);
+            if (pricePerTon) details.push(["Estimated material cost", "$" + format(tons * pricePerTon)]);
+        }
+
         return {
             primary: format(orderYards) + " cubic yards",
-            details: [
-                ["Estimated weight", format(tons) + " tons"],
-                ["Volume", format(cubicFeet) + " ft³"],
-                ["Before overage", format(cubicYards) + " yd³"]
-            ],
+            details: details,
             note: "Estimate includes " + format(waste * 100, 1) + "% extra material. Actual " + label.toLowerCase() + " density varies by product and moisture."
         };
     }
@@ -180,15 +198,129 @@
             '<p class="result-kicker">You will need approximately</p>' +
             '<p class="primary-result">' + output.primary + '</p>' +
             '<div class="result-details">' + details + '</div>' +
-            '<p class="result-note">' + output.note + '</p>';
+            '<p class="result-note">' + output.note + '</p>' +
+            '<div class="result-actions" aria-label="Result actions">' +
+                '<button type="button" data-copy-result>Copy result</button>' +
+                '<button type="button" data-share-result>Share</button>' +
+                '<button type="button" data-print-result>Print</button>' +
+            '</div>';
+    }
+
+    function hydrateFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        params.forEach(function (parameterValue, name) {
+            var control = form.elements.namedItem(name);
+            if (!control || control.type === "submit") return;
+            if (control.type === "checkbox") control.checked = parameterValue === "1";
+            else control.value = parameterValue;
+        });
+    }
+
+    function updateShareUrl() {
+        if (!window.history || !window.history.replaceState) return;
+        var url = new URL(window.location.href);
+        Array.prototype.forEach.call(form.elements, function (control) {
+            if (!control.name || control.type === "submit") return;
+            url.searchParams.set(control.name, control.type === "checkbox" ? (control.checked ? "1" : "0") : control.value);
+        });
+        window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+    }
+
+    function copyText(text, button, successLabel) {
+        if (!navigator.clipboard || !navigator.clipboard.writeText) return Promise.reject(new Error("Clipboard unavailable"));
+        return navigator.clipboard.writeText(text).then(function () {
+            var previous = button.textContent;
+            button.textContent = successLabel;
+            window.setTimeout(function () { button.textContent = previous; }, 1600);
+        });
     }
 
     function calculate(event) {
         if (event) event.preventDefault();
         render(calculators[kind]());
+        updateShareUrl();
     }
 
+    hydrateFromUrl();
     form.addEventListener("submit", calculate);
     form.addEventListener("input", calculate);
+    result.addEventListener("click", function (event) {
+        var button = event.target.closest("button");
+        if (!button) return;
+
+        if (button.hasAttribute("data-print-result")) {
+            window.print();
+            return;
+        }
+
+        var summary = result.querySelector(".primary-result").textContent + ". " +
+            Array.from(result.querySelectorAll(".result-detail")).map(function (detail) {
+                return detail.textContent.trim();
+            }).join("; ");
+
+        if (button.hasAttribute("data-copy-result")) {
+            copyText(summary, button, "Copied").catch(function () { button.textContent = "Copy unavailable"; });
+        }
+
+        if (button.hasAttribute("data-share-result")) {
+            if (navigator.share) {
+                navigator.share({ title: document.title, text: summary, url: window.location.href }).catch(function () {});
+            } else {
+                copyText(window.location.href, button, "Link copied").catch(function () { button.textContent = "Share unavailable"; });
+            }
+        }
+    });
+
+    var projectPreset = form.elements.namedItem("project");
+    if (kind === "gravel" && projectPreset) {
+        var gravelDepths = { driveway: 4, walkway: 3, "french-drain": 12, "patio-base": 4, "garden-path": 3, "parking-pad": 6 };
+        projectPreset.addEventListener("change", function () {
+            var depth = gravelDepths[projectPreset.value];
+            if (depth) form.elements.namedItem("depth").value = depth;
+            calculate();
+        });
+    }
+
     calculate();
+
+    var retailerSearches = {
+        gravel: "gravel bags",
+        "river-rock": "river rock landscaping",
+        topsoil: "topsoil bags",
+        mulch: "mulch bags",
+        fence: "fence panels and posts",
+        "roof-pitch": "roofing materials",
+        "board-foot": "lumber boards",
+        paver: "patio pavers",
+        paint: "interior wall paint",
+        drywall: "drywall sheets"
+    };
+
+    function addRetailerLinks() {
+        var query = retailerSearches[kind];
+        var sideColumn = document.querySelector(".side-column");
+        if (!query || !sideColumn) return;
+
+        var panel = document.createElement("section");
+        panel.className = "side-panel retailer-panel";
+        panel.setAttribute("aria-labelledby", "shop-materials-title");
+        panel.innerHTML =
+            '<p class="retailer-kicker">Optional next step</p>' +
+            '<h2 id="shop-materials-title">Compare materials</h2>' +
+            '<p class="retailer-intro">Open matching search results at either retailer. Local prices and availability vary.</p>' +
+            '<div class="retailer-links">' +
+                '<a class="retailer-link lowes-link" href="https://www.lowes.com/search?searchTerm=' + encodeURIComponent(query) + '" target="_blank" rel="nofollow noopener">' +
+                    '<span><small>Shop at</small>Lowe&#39;s</span><span aria-hidden="true">↗</span>' +
+                '</a>' +
+                '<a class="retailer-link home-depot-link" href="https://www.homedepot.com/s/' + encodeURIComponent(query) + '" target="_blank" rel="nofollow noopener">' +
+                    '<span><small>Shop at</small>Home Depot</span><span aria-hidden="true">↗</span>' +
+                '</a>' +
+            '</div>' +
+            '<p class="retailer-note">Direct retailer search links. No price or product is endorsed.</p>';
+
+        var ad = sideColumn.querySelector("[data-ad-unit]");
+        sideColumn.insertBefore(panel, ad || null);
+    }
+
+    addRetailerLinks();
 }());
