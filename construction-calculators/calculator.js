@@ -8,11 +8,12 @@
     var result = document.querySelector("[data-calculator-result]");
 
     function value(name) {
-        return Number(form.elements[name].value);
+        return Number(form.elements.namedItem(name).value);
     }
 
     function checked(name) {
-        return Boolean(form.elements[name] && form.elements[name].checked);
+        var control = form.elements.namedItem(name);
+        return Boolean(control && control.checked);
     }
 
     function format(number, digits) {
