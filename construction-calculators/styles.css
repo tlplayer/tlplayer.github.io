@@ -504,6 +504,7 @@ h1 {
 
 .article-copy h2 { margin: 42px 0 12px; font-size: 1.6rem; }
 .article-copy h2:first-child { margin-top: 0; }
+.reference-date { margin: 0 0 24px; color: var(--muted); font-size: .78rem; }
 .article-copy h3 { margin: 28px 0 8px; font-size: 1.12rem; }
 .article-copy p, .article-copy li { color: var(--muted); }
 .article-copy .formula { border-left: 4px solid var(--accent); background: var(--formula); padding: 16px 18px; color: var(--ink); font-weight: 700; }
