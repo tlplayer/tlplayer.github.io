@@ -42,6 +42,12 @@
     function volume(cubicFeet) { return currentUnit === "metric" ? format(cubicFeet * 0.0283168) + " m³" : format(cubicFeet / 27) + " yd³"; }
     function item(name, quantity, query, method) { return { name:name, quantity:quantity, query:query, method:method }; }
 
+    function csvCell(value) { var text=value==null?'':String(value);if(typeof value==='string'&&/^[=+\-@]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"'; }
+    function downloadCsv(filename,rows){var csv='\ufeff'+rows.map(function(row){return row.map(csvCell).join(',');}).join('\r\n');var url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));var link=document.createElement('a');link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);}
+    function shoppingUrls(query){var encoded=encodeURIComponent(query);return{homeDepot:'https://www.homedepot.com/s/'+encoded,lowes:'https://www.lowes.com/search?searchTerm='+encoded,local:'https://www.google.com/search?q='+encodeURIComponent(query+' supplier near me')};}
+    function splitQuantity(quantity){if(typeof quantity==='number')return{value:quantity,unit:''};var match=String(quantity).match(/^([\d,.]+)\s*(.*)$/);return match?{value:Number(match[1].replace(/,/g,'')),unit:match[2]}:{value:quantity,unit:''};}
+    function exportProjectCsv(){var rows=[["Record Type","Phase","Item","Value / Quantity","Unit","Basis","Unit Cost","Extended Cost","Home Depot","Lowe's","Local Supplier"]];rows.push(['Project','','Name',document.getElementById('project-name').value,'','','','','','','']);rows.push(['Project','','Type',names[currentProject],'','','','','','','']);rows.push(['Project','','Exported',new Date().toISOString(),'','','','','','','']);definitions[currentProject].forEach(function(definition){rows.push(['Dimension / assumption','',definition[1],fieldValue(definition[0]),labelFor(definition[2]),definition[0],'','','','','']);});latestPhases.forEach(function(phase){phase.rows.forEach(function(material){var urls=shoppingUrls(material.query),quantity=splitQuantity(material.quantity);rows.push(['Material',phase.name,material.name,quantity.value,quantity.unit,material.method,'','',urls.homeDepot,urls.lowes,urls.local]);});});rows.push(['Note','','Costs','Enter quoted unit costs in Excel','','Extended cost is intentionally blank until a supplier price is known.','','','','','']);downloadCsv(currentProject+'-project-materials.csv',rows);}
+
     function renderFields(values) {
         fieldHost.innerHTML = "";
         definitions[currentProject].forEach(function (definition) {
@@ -116,6 +122,7 @@
     form.addEventListener('input',function(event){if(event.target!==unitSelect)renderOutput();});
     document.getElementById('save-project').addEventListener('click',function(){var saved=readSaved();saved.unshift(snapshot());saved=saved.slice(0,8);try{localStorage.setItem(savedKey,JSON.stringify(saved));this.textContent='Saved';setTimeout(function(){document.getElementById('save-project').textContent='Save on this device';},1200);}catch(error){this.textContent='Storage unavailable';}renderSaved();});
     document.getElementById('project-print').addEventListener('click',function(){window.print();});
+    document.getElementById('project-export').addEventListener('click',exportProjectCsv);
     document.getElementById('project-copy').addEventListener('click',function(){var lines=[document.getElementById('project-result-title').textContent];latestPhases.forEach(function(phase){lines.push('',phase.name);phase.rows.forEach(function(row){lines.push('- '+row.name+': '+row.quantity);});});navigator.clipboard.writeText(lines.join('\n')).then(function(){this.textContent='Copied';}.bind(this)).catch(function(){this.textContent='Copy unavailable';}.bind(this));});
     renderFields();renderOutput();renderSaved();
 }());

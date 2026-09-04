@@ -22,6 +22,53 @@
     function displayArea(squareFeet) { return currentUnit === "metric" ? format(squareFeet * 0.092903) + " m²" : format(squareFeet, 0) + " ft²"; }
     function displayVolume(cubicFeet) { return currentUnit === "metric" ? format(cubicFeet * 0.0283168) + " m³" : format(cubicFeet / 27) + " yd³"; }
 
+    function csvCell(value) {
+        var text = value == null ? "" : String(value);
+        if (typeof value === "string" && /^[=+\-@]/.test(text)) text = "'" + text;
+        return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function downloadCsv(filename, rows) {
+        var csv = "\ufeff" + rows.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n");
+        var url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        var link = document.createElement("a");
+        link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function shoppingUrls(query) {
+        var encoded = encodeURIComponent(query);
+        return { homeDepot: "https://www.homedepot.com/s/" + encoded, lowes: "https://www.lowes.com/search?searchTerm=" + encoded };
+    }
+
+    function splitQuantity(quantity, declaredUnit) {
+        if (typeof quantity === "number") return { value: quantity, unit: declaredUnit || "" };
+        var match = String(quantity).match(/^([\d,.]+)\s*(.*)$/);
+        return match ? { value: Number(match[1].replace(/,/g, "")), unit: declaredUnit || match[2] } : { value: quantity, unit: declaredUnit || "" };
+    }
+
+    function exportStructureCsv() {
+        var rows = [["Record Type", "Phase", "Item", "Value / Quantity", "Unit", "Basis", "Unit Cost", "Extended Cost", "Home Depot", "Lowe's"]];
+        rows.push(["Project", "", "Structure", element("building-type").selectedOptions[0].textContent, "", "", "", "", "", ""]);
+        rows.push(["Project", "", "Exported", new Date().toISOString(), "", "", "", "", "", ""]);
+        rows.push(["Project", "", "Shareable configuration", window.location.href, "", "", "", "", "", ""]);
+        Array.prototype.forEach.call(form.elements, function (control) {
+            if (!control.name) return;
+            var label = form.querySelector('label[for="' + control.id + '"]');
+            var value = control.tagName === "SELECT" ? control.selectedOptions[0].textContent : control.value;
+            rows.push(["Dimension / assumption", "", label ? label.textContent.trim() : control.name, value, "", control.name, "", "", "", ""]);
+        });
+        latestPhases.forEach(function (phase) {
+            phase.rows.forEach(function (item) {
+                var urls = shoppingUrls(item.query);
+                var quantity = splitQuantity(item.quantity, item.unit);
+                rows.push(["Material", phase.name, item.name, quantity.value, quantity.unit, item.method, "", "", urls.homeDepot, urls.lowes]);
+            });
+        });
+        rows.push(["Note", "", "Costs", "Enter quoted unit costs in Excel", "", "Extended cost is intentionally blank until a supplier price is known.", "", "", "", ""]);
+        downloadCsv(element("building-type").value + "-material-estimate.csv", rows);
+    }
+
     function updateUnitConstraints() {
         element("building-length").min = currentUnit === "metric" ? "1.2" : "4";
         element("building-width").min = currentUnit === "metric" ? "1.2" : "4";
@@ -180,6 +227,7 @@
     form.addEventListener("input", function (event) { if (event.target !== unitSystem && event.target.id !== "building-type") render(); });
     document.getElementById("structure-reset-view").addEventListener("click", function () { viewer.reset(); });
     document.getElementById("structure-print").addEventListener("click", function () { window.print(); });
+    document.getElementById("structure-export").addEventListener("click", exportStructureCsv);
     document.getElementById("structure-copy").addEventListener("click", function () {
         var lines = [document.title, summary.textContent];
         latestPhases.forEach(function (phase) { lines.push("", phase.name); phase.rows.forEach(function (item) { lines.push("- " + item.name + ": " + item.quantity + (item.unit ? " " + item.unit : "")); }); });

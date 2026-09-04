@@ -18,6 +18,7 @@
     var sourceLabel = document.getElementById("terrain-source-label");
     var currentUnit = "imperial";
     var importedGrid = null;
+    var latestMeasurements = null;
 
     function numeric(input, fallback) {
         var value = Number(input.value);
@@ -26,6 +27,46 @@
 
     function format(value, digits) {
         return Number(value).toLocaleString("en-US", { maximumFractionDigits: digits == null ? 2 : digits });
+    }
+
+    function csvCell(value) {
+        var text = value == null ? "" : String(value);
+        if (typeof value === "string" && /^[=+\-@]/.test(text)) text = "'" + text;
+        return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function downloadCsv(filename, rows) {
+        var csv = "\ufeff" + rows.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n");
+        var url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        var link = document.createElement("a");
+        link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+        window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function exportTerrainCsv() {
+        var grid = activeGrid();
+        var rows = [["Record Type", "Name", "X", "Y", "Elevation / Value", "Unit", "Notes"]];
+        var lengthUnit = currentUnit === "metric" ? "m" : "ft";
+        var volumeUnit = currentUnit === "metric" ? "m³" : "yd³";
+        var width = Math.max(1, numeric(widthInput, 1));
+        var depth = Math.max(1, numeric(depthInput, 1));
+        rows.push(["Project", "Exported", "", "", new Date().toISOString(), "", ""]);
+        rows.push(["Project", "Site width", "", "", width, lengthUnit, ""]);
+        rows.push(["Project", "Site depth", "", "", depth, lengthUnit, ""]);
+        if (latestMeasurements) {
+            rows.push(["Analysis", "Total relief", "", "", latestMeasurements.relief, lengthUnit, ""]);
+            rows.push(["Analysis", "Average grid grade", "", "", latestMeasurements.averageSlope, "%", ""]);
+            rows.push(["Analysis", "Steepest grid grade", "", "", latestMeasurements.maxSlope, "%", ""]);
+            rows.push(["Analysis", "Curvature index", "", "", latestMeasurements.curvature, "relative", "Mean local second-difference"]);
+            rows.push(["Analysis", "Conceptual cut", "", "", currentUnit === "metric" ? latestMeasurements.cut : latestMeasurements.cut / 27, volumeUnit, "At target level"]);
+            rows.push(["Analysis", "Conceptual fill", "", "", currentUnit === "metric" ? latestMeasurements.fill : latestMeasurements.fill / 27, volumeUnit, "At target level"]);
+        }
+        grid.forEach(function (line, row) {
+            line.forEach(function (elevation, column) {
+                rows.push(["Surface point", "Grid " + row + ":" + column, column / (line.length - 1) * width, row / (grid.length - 1) * depth, elevation, lengthUnit, sourceLabel.textContent]);
+            });
+        });
+        downloadCsv("terrain-surface-xyz.csv", rows);
     }
 
     function manualGrid(size) {
@@ -130,6 +171,7 @@
     function render() {
         var grid = activeGrid();
         var values = measureGrid(grid);
+        latestMeasurements = values;
         var lengthUnit = currentUnit === "metric" ? "m" : "ft";
         var volumeUnit = currentUnit === "metric" ? "m³" : "yd³";
         var cut = currentUnit === "metric" ? values.cut : values.cut / 27;
@@ -273,6 +315,7 @@
         });
     });
     document.getElementById("terrain-reset-view").addEventListener("click", function () { viewer.reset(); });
+    document.getElementById("terrain-export").addEventListener("click", exportTerrainCsv);
     document.getElementById("terrain-print").addEventListener("click", function () { window.print(); });
     render();
 }());

@@ -8,6 +8,7 @@
     var result = document.querySelector("[data-calculator-result]");
     var retailerPanel = null;
     var currentUnit = "imperial";
+    var latestOutput = null;
 
     var unitFactors = {
         foot: 0.3048,
@@ -422,8 +423,54 @@
             '<div class="result-actions" aria-label="Result actions">' +
                 '<button type="button" data-copy-result>Copy result</button>' +
                 '<button type="button" data-share-result>Share</button>' +
+                '<button type="button" data-export-csv>Export CSV</button>' +
                 '<button type="button" data-print-result>Print</button>' +
             '</div>';
+    }
+
+    function csvCell(value) {
+        var text = value == null ? "" : String(value);
+        if (typeof value === "string" && /^[=+\-@]/.test(text)) text = "'" + text;
+        return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function downloadCsv(filename, rows) {
+        var csv = "\ufeff" + rows.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n");
+        var url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+        var link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function exportCalculatorCsv() {
+        if (!latestOutput) return;
+        var rows = [["Section", "Item", "Value", "Notes"]];
+        rows.push(["Project", "Calculator", document.title, ""]);
+        rows.push(["Project", "Exported", new Date().toISOString(), ""]);
+        rows.push(["Project", "Source URL", window.location.href, ""]);
+        Array.prototype.forEach.call(form.elements, function (control) {
+            if (!control.name || control.type === "submit") return;
+            var label = form.querySelector('label[for="' + control.id + '"]');
+            var displayValue = control.type === "checkbox" ? (control.checked ? "Yes" : "No") : control.tagName === "SELECT" ? control.selectedOptions[0].textContent : control.value;
+            rows.push(["Input", label ? label.textContent.trim() : control.name, displayValue, control.name]);
+        });
+        rows.push(["Result", "Primary estimate", latestOutput.primary, ""]);
+        latestOutput.details.forEach(function (detail) { rows.push(["Result", detail[0], detail[1], ""]); });
+        rows.push(["Result", "Estimate note", latestOutput.note, ""]);
+        (window.BUILDESTIMATE_MANUAL_PRICE_EXPORT || []).forEach(function (entry) {
+            rows.push(["Price comparison", entry.retailer + " project total", entry.total, "USD"]);
+            rows.push(["Price comparison", entry.retailer + " packages", entry.packages, entry.packageSize + " " + entry.unit + " each at $" + entry.packagePrice]);
+            rows.push(["Price comparison", entry.retailer + " unit cost", entry.unitCost, "USD per " + entry.unit]);
+            rows.push(["Price comparison", entry.retailer + " excess", entry.excess, entry.unit]);
+        });
+        (window.BUILDESTIMATE_AUTHORIZED_PRICE_EXPORT || []).forEach(function (entry) {
+            rows.push(["Authorized offer", entry.retailer + " — " + entry.product, entry.total, "USD · " + entry.packages + " packages · checked " + (entry.updatedAt || "not supplied")]);
+        });
+        downloadCsv(kind + "-estimate.csv", rows);
     }
 
     function formatControlValue(number) {
@@ -535,6 +582,7 @@
     function calculate(event) {
         if (event) event.preventDefault();
         var output = calculators[kind]();
+        latestOutput = output;
         render(output);
         updateShareUrl();
         if (retailerPanel) updateRetailerLinks(retailerPanel);
@@ -618,6 +666,11 @@
 
         if (button.hasAttribute("data-print-result")) {
             window.print();
+            return;
+        }
+
+        if (button.hasAttribute("data-export-csv")) {
+            exportCalculatorCsv();
             return;
         }
 

@@ -135,10 +135,13 @@
             var packages = roundUp(requirement.quantity / size);
             var total = packages * price;
             var excess = Math.max(0, packages * size - requirement.quantity);
-            calculations.push({ card: card, total: total });
+            calculations.push({ card: card, retailer: retailer, packageSize: size, packagePrice: price, packages: packages, total: total, unitCost: price / size, excess: excess, unit: requirement.unitLabel });
             card.querySelector("[data-manual-output]").innerHTML =
                 '<strong>' + packages + ' package' + (packages === 1 ? '' : 's') + ' · ' + currency.format(total) + '</strong>' +
                 '<span>' + currency.format(price / size) + ' per ' + (unitNames[requirement.unit] || requirement.unitLabel) + ' · ' + formatQuantity(excess, requirement.unitLabel) + ' left over</span>';
+        });
+        window.BUILDESTIMATE_MANUAL_PRICE_EXPORT = calculations.map(function (item) {
+            return { retailer: item.retailer, packageSize: item.packageSize, packagePrice: item.packagePrice, packages: item.packages, total: item.total, unitCost: item.unitCost, excess: item.excess, unit: item.unit };
         });
         if (shouldSave) saveEntries(entries);
         if (!calculations.length) return;
@@ -234,6 +237,9 @@
     function renderOffers(feedDate) {
         offersNode.replaceChildren();
         var offers = relevantOffers();
+        window.BUILDESTIMATE_AUTHORIZED_PRICE_EXPORT = offers.map(function (item) {
+            return { retailer: item.offer.retailer, product: item.offer.product, packages: item.packages, total: item.total, excess: item.excess, updatedAt: item.offer.updatedAt || feedDate || "" };
+        });
         var status = document.createElement("p");
         status.className = "offer-feed-status";
         if (!offers.length) {
