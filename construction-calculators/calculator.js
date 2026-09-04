@@ -534,9 +534,77 @@
 
     function calculate(event) {
         if (event) event.preventDefault();
-        render(calculators[kind]());
+        var output = calculators[kind]();
+        render(output);
         updateShareUrl();
         if (retailerPanel) updateRetailerLinks(retailerPanel);
+        window.BUILDESTIMATE_PRICING = output ? pricingRequirement() : null;
+        window.dispatchEvent(new CustomEvent("buildestimate:pricing", { detail: window.BUILDESTIMATE_PRICING }));
+    }
+
+    function pricingRequirement() {
+        var waste = Math.max(0, optionalValue("waste", 0)) / 100;
+
+        if (["gravel", "river-rock", "topsoil", "mulch"].indexOf(kind) !== -1) {
+            return {
+                material: kind,
+                quantity: value("length") * value("width") * (value("depth") / 12) * (1 + waste),
+                unit: "cu_ft",
+                unitLabel: "ft³"
+            };
+        }
+
+        if (kind === "paver") {
+            var joint = Math.max(0, optionalValue("jointWidth", 0));
+            var moduleArea = (value("paverLength") + joint) * (value("paverWidth") + joint) / 144;
+            return { material: kind, quantity: roundUp(value("length") * value("width") * (1 + waste) / moduleArea), unit: "each", unitLabel: "pavers" };
+        }
+
+        if (kind === "paint") {
+            var wallArea = 2 * (value("length") + value("width")) * value("height");
+            var openings = Math.max(0, value("doors") || 0) * 21 + Math.max(0, value("windows") || 0) * 15;
+            return { material: kind, quantity: Math.max(0, wallArea - openings) * value("coats") / value("coverage"), unit: "gallon", unitLabel: "gal" };
+        }
+
+        if (kind === "drywall") {
+            var drywallArea = 2 * (value("length") + value("width")) * value("height") + (checked("includeCeiling") ? value("length") * value("width") : 0);
+            return { material: kind, quantity: roundUp(drywallArea * (1 + waste) / value("sheetArea")), unit: "each", unitLabel: "sheets" };
+        }
+
+        if (kind === "fence") {
+            var fenceLength = Math.max(0, value("length") - Math.max(0, optionalValue("gateWidth", 0)));
+            return { material: kind, quantity: roundUp(fenceLength / value("panelWidth")), unit: "each", unitLabel: "panels" };
+        }
+
+        if (kind === "framing") {
+            var baseStuds = roundUp(value("wallLength") * 12 / value("studSpacing")) + 1 + Math.max(0, value("openings") || 0) * Math.max(0, value("extraPerOpening") || 0);
+            return { material: kind, quantity: roundUp(baseStuds * (1 + waste)), unit: "each", unitLabel: "studs" };
+        }
+
+        if (kind === "sod") {
+            return { material: kind, quantity: value("length") * value("width") * (1 + waste), unit: "sq_ft", unitLabel: "ft²" };
+        }
+
+        if (kind === "edging") {
+            var perimeter = Math.max(0, 2 * (value("length") + value("width")) - Math.max(0, optionalValue("gaps", 0)));
+            return { material: kind, quantity: perimeter * (1 + waste), unit: "linear_ft", unitLabel: "linear ft" };
+        }
+
+        if (kind === "board-foot") {
+            return { material: kind, quantity: value("thickness") * value("width") * value("length") / 12 * value("quantity"), unit: "board_ft", unitLabel: "board ft" };
+        }
+
+        if (kind === "appliance-fit") {
+            var applianceType = form.elements.namedItem("applianceType");
+            return {
+                material: "appliance-" + (applianceType ? applianceType.value : "appliance"),
+                quantity: 1,
+                unit: "each",
+                unitLabel: "appliance"
+            };
+        }
+
+        return null;
     }
 
     setupUnitSystem();
