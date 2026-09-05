@@ -19,3 +19,7 @@ The Google script now loads on every BuildEstimate page, so Auto ads can run onc
 Deploy the updated pages through GitHub Pages for this wiring to take effect. Site approval, Auto ads, any page exclusions, and regional consent messages remain controlled in the AdSense dashboard; adding the script does not confirm ad delivery or change those account settings.
 
 References: [Google's code placement guide](https://support.google.com/adsense/answer/9274516?hl=en) and [advertising privacy disclosures](https://support.google.com/adsense/answer/1348695?hl=en).
+
+## CravePlan
+
+`meal-planner/index.html` and `meal-planner/copycat/index.html` use the same shared `construction-calculators/config.js` and `construction-calculators/adsense.js` loader, in that order. They use Auto ads with no manual ad containers. The planner's “Saving your plan, privacy & advertising” section covers local calculations, downloaded plan files, advertising, and retailer search links.
