@@ -185,7 +185,7 @@
 
     function shopLinks(query) {
         var encoded = encodeURIComponent(query);
-        return '<div class="shop-links"><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/' + encoded + '">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm=' + encoded + '">Lowe\'s ↗</a></div>';
+        return '<div class="shop-links"><a target="_blank" rel="noopener noreferrer sponsored" href="' + window.amazonSearch(query).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">Search Amazon ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/' + encoded + '">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm=' + encoded + '">Lowe\'s ↗</a></div>';
     }
 
     function renderBom(phases) {

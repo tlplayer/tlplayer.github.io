@@ -105,7 +105,7 @@
         return { phases:phases, area:projectArea, items:phases.reduce(function(sum,phase){return sum+phase.rows.length;},0) };
     }
 
-    function shopLinks(query) { var encoded=encodeURIComponent(query); return '<div class="shop-links"><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/'+encoded+'">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm='+encoded+'">Lowe\'s ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.google.com/search?q='+encodeURIComponent(query+' supplier near me')+'">Local ↗</a></div>'; }
+    function shopLinks(query) { var encoded=encodeURIComponent(query); return '<div class="shop-links"><a target="_blank" rel="noopener noreferrer sponsored" href="' + window.amazonSearch(query).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">Search Amazon ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/'+encoded+'">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm='+encoded+'">Lowe\'s ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.google.com/search?q='+encodeURIComponent(query+' supplier near me')+'">Local ↗</a></div>'; }
     function renderOutput() {
         var result=calculate(); latestPhases=result.phases;
         var title=document.getElementById("project-name").value.trim() || names[currentProject];

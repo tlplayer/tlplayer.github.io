@@ -744,6 +744,7 @@
 
     function updateRetailerLinks(panel) {
         var query = retailerQuery();
+        panel.querySelector(".amazon-link").href = window.amazonSearch(query);
         panel.querySelector(".lowes-link").href = "https://www.lowes.com/search?searchTerm=" + encodeURIComponent(query);
         panel.querySelector(".home-depot-link").href = "https://www.homedepot.com/s/" + encodeURIComponent(query);
         panel.querySelector("[data-retailer-query]").textContent = query;
@@ -760,9 +761,12 @@
         panel.innerHTML =
             '<p class="retailer-kicker">Optional next step</p>' +
             '<h2 id="shop-materials-title">Compare materials</h2>' +
-            '<p class="retailer-intro">Open matching search results at either retailer. Local prices and availability vary.</p>' +
+            '<p class="retailer-intro">Open matching search results at your preferred retailer. Local prices and availability vary.</p>' +
             '<p class="retailer-query">Suggested search: <strong data-retailer-query></strong></p>' +
             '<div class="retailer-links">' +
+                '<a class="retailer-link amazon-link" target="_blank" rel="noopener noreferrer sponsored">' +
+                    '<span>Search Amazon</span><span aria-hidden="true">↗</span>' +
+                '</a>' +
                 '<a class="retailer-link lowes-link" href="https://www.lowes.com/search?searchTerm=' + encodeURIComponent(query) + '" target="_blank" rel="nofollow noopener">' +
                     '<span><small>Shop at</small>Lowe&#39;s</span><span aria-hidden="true">↗</span>' +
                 '</a>' +
@@ -770,7 +774,7 @@
                     '<span><small>Shop at</small>Home Depot</span><span aria-hidden="true">↗</span>' +
                 '</a>' +
             '</div>' +
-            '<p class="retailer-note">Direct retailer search links. No price or product is endorsed.</p>';
+            '<p class="retailer-note">As an Amazon Associate I earn from qualifying purchases.</p>';
 
         retailerPanel = panel;
         var ad = sideColumn.querySelector("[data-ad-unit]");
