@@ -14,7 +14,7 @@ The Google script now loads on every BuildEstimate page, so Auto ads can run onc
 
 ## SLAcheck and SpendCheck
 
-`sla-check/index.html` and `spend-check/index.html` also load the same publisher's asynchronous AdSense script directly in their document heads, matching the main homepage. They use Auto ads; no manual display slot is configured for these two pages. Their footers link to `operations-tools/privacy.html`, which describes local file processing and Google advertising cookies and requests.
+`sla-check/index.html` and `spend-check/index.html` load `construction-calculators/config.js` followed by the existing `construction-calculators/adsense.js` loader, just like the construction calculators. The loader reads `CONSTRUCTION_CALCULATORS_CONFIG` and injects Google's asynchronous script for the configured publisher. These two pages use Auto ads and have no manual `[data-ad-unit]` containers. Their footers link to `operations-tools/privacy.html`, which describes local file processing and Google advertising cookies and requests.
 
 Deploy the updated pages through GitHub Pages for this wiring to take effect. Site approval, Auto ads, any page exclusions, and regional consent messages remain controlled in the AdSense dashboard; adding the script does not confirm ad delivery or change those account settings.
 
