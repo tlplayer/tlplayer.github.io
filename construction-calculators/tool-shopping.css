@@ -1,0 +1,11 @@
+.tool-shopping { margin-top: 24px; margin-bottom: 48px; padding: clamp(20px, 4vw, 36px); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
+.tool-shopping > p { max-width: 75ch; }
+.tool-shopping form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.tool-shopping .field { flex: 1 1 260px; }
+.tool-shopping .calculate-button { width: auto; margin: 0; }
+.tool-suggestions { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0; }
+.tool-retailers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.tool-retailers .tool-amazon { border: 2px solid var(--brand); }
+.tool-retailers a[aria-disabled="true"] { opacity: .5; }
+.tool-shopping button:disabled { opacity: .5; cursor: default; }
+@media print { .tool-shopping { display: none !important; } }
