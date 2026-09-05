@@ -40,49 +40,28 @@
     const result={kcal:0,protein:0,carbs:0,fat:0,fiber:0,cost:0,netCarbs:0,time:0};
     day.forEach(m=>{const r=recipeMap[m.recipe],n=mealNutrition(m,prices);for(const k of Object.keys(n))result[k]+=n[k];result.time+=m.buy?0:r.prep+r.cook;});return result;
   }
-  function build(settings,previous=[],prices={},targets=[]) {
-    const s=validateSettings(settings),used=new Set(),counts={},plan=[];
-    const pools=Object.fromEntries(slots.map(slot=>[slot,D.recipes.filter(r=>r.slots.includes(slot)&&allowed(r,s))]));
-    for(const slot of slots)if(!pools[slot].length)throw Error(`No ${slot} recipes match this combination. Try another eating style or turn off the dairy-free filter.`);
-    for(let day=0;day<s.days;day++) {
-      const locked=(previous[day]||[]).filter(m=>m.locked).map(m=>({...m}));
-      if(locked.some(m=>!recipeMap[m.recipe]||(!m.buy&&!allowed(recipeMap[m.recipe],s))))throw Error(`Day ${day+1} has a pinned meal outside this eating style. Unpin or replace it before rebuilding.`);
-      const open=slots.filter(slot=>!locked.some(m=>m.slot===slot));
-      const calorieTarget=targets[day]??s.calories;
-      const lockedN=dayTotals(locked,prices),remaining=Math.max(0,calorieTarget-lockedN.kcal);
-      let beam=[{meals:locked,n:lockedN,score:0}];
-      const weights={breakfast:.25,lunch:.30,dinner:.33,snack:.12};
-      const weightSum=open.reduce((n,slot)=>n+weights[slot],0);
-      for(let stage=0;stage<open.length;stage++) {
-        const slot=open[stage],candidates=[];
-        for(const state of beam)for(const r of pools[slot])for(const portion of [.75,1,1.25,1.5,2]) {
-          const m={recipe:r.id,portion,slot,locked:false},meals=[...state.meals,m],n=dayTotals(meals,prices);
-          const progress=open.slice(0,stage+1).reduce((v,k)=>v+weights[k],0)/weightSum;
-          const target=lockedN.kcal+remaining*progress;
-          const repeats=meals.filter(x=>x.recipe===r.id).length-1;
-          const newIngredients=new Set(meals.flatMap(x=>x.buy?[]:recipeMap[x.recipe].parts.map(p=>p.id)).filter(id=>!used.has(id))).size;
-          const overCost=Math.max(0,n.cost*s.people-s.budget/s.days*progress);
-          const overTime=Math.max(0,n.time-s.cookTime*progress);
-          let score=Math.abs(n.kcal-target)/calorieTarget*140+overCost*1.4+overTime*(s.quick?.8:.25)+repeats*14+(counts[r.id]||0)*2.5;
-          score+=newIngredients*(s.reuse?.7:.05);
-          if(s.protein)score+=Math.max(0,s.protein*progress-n.protein)*.18;
-          if(s.diet==='keto')score+=Math.max(0,n.netCarbs-50*progress)*2;
-          if(s.diet==='low-carb')score+=Math.max(0,n.carbs-130*progress)*.6;
-          candidates.push({meals,n,score});
-        }
-        candidates.sort((a,b)=>a.score-b.score);
-        beam=candidates.slice(0,16);
-      }
-      const meals=beam[0].meals.sort((a,b)=>slots.indexOf(a.slot)-slots.indexOf(b.slot));
-      plan.push(meals);meals.forEach(m=>{counts[m.recipe]=(counts[m.recipe]||0)+1;if(!m.buy)recipeMap[m.recipe].parts.forEach(p=>used.add(p.id));});
-    }
-    return plan;
+  function resizePlan(settings,previous=[]) {
+    const s=validateSettings(settings);
+    if(previous.slice(s.days).some(day=>day.length))throw Error('Those later days contain your choices. Remove their meals before shortening the week.');
+    return Array.from({length:s.days},(_,i)=>(previous[i]||[]).map(m=>({...m,...(m.buy?{buy:{...m.buy}}:{})})));
   }
-  function shopping(plan,people,pantry={},prices={},extras=[]) {
+  function schedule(plan,meal,start,count) {
+    if(!Object.hasOwn(recipeMap,meal.recipe)||!slots.concat('extra').includes(meal.slot)||!Number.isFinite(meal.portion)||meal.portion<.25||meal.portion>4||!Number.isInteger(meal.portion*4))throw Error('Choose a meal and 0.25–4 servings in quarter servings.');
+    if(!Number.isInteger(start)||!Number.isInteger(count)||start<0||count<1||start+count>plan.length)throw Error('Choose days within your week.');
+    if(meal.buy)validBuy(meal.buy);
+    return plan.map((day,i)=>{
+      if(i<start||i>=start+count)return day.map(m=>({...m}));
+      const kept=meal.slot==='extra'?day:day.filter(m=>m.slot!==meal.slot);
+      if(kept.length>=12)throw Error(`Day ${i+1} already has 12 meals. Remove a meal first.`);
+      return [...kept,{recipe:meal.recipe,slot:meal.slot,portion:meal.portion,locked:true,eaten:false,...(meal.buy?{buy:{...meal.buy}}:{})}];
+    });
+  }
+  function shopping(plan,people,pantry={},prices={},extras=[],purchased={}) {
     const needed={};[...plan.flat().filter(m=>!m.buy),...extras].forEach(m=>recipeMap[m.recipe].parts.forEach(p=>needed[p.id]=(needed[p.id]||0)+p.qty*m.portion*people));
+    for(const [id,n] of Object.entries(purchased))if(n>0&&Object.hasOwn(D.ingredients,id))needed[id]??=0;
     return Object.entries(needed).map(([id,qty])=>{
-      const i=D.ingredients[id],packs=pantry[id]?0:Math.ceil(qty/i.pack-1e-10),price=Object.hasOwn(prices,id)?prices[id]:i.price;
-      return {...i,qty,packs,price,have:Boolean(pantry[id]),leftover:pantry[id]?0:packs*i.pack-qty,total:Math.round(packs*price*100)/100};
+      const i=D.ingredients[id],bought=purchased[id]||0,required=pantry[id]?0:Math.ceil(qty/i.pack-1e-10),packs=Math.max(0,required-bought),price=Object.hasOwn(prices,id)?prices[id]:i.price;
+      return {...i,qty,packs,required,bought,price,have:Boolean(pantry[id]),leftover:pantry[id]?0:Math.max(0,(packs+bought)*i.pack-qty),total:Math.round(packs*price*100)/100};
     }).sort((a,b)=>a.aisle.localeCompare(b.aisle)||a.name.localeCompare(b.name));
   }
   function activity(met,kg,minutes,mealKcal,basis='gross') {
@@ -92,14 +71,13 @@
     return {gross:grossRate*minutes,net:netRate*minutes,rate,energy:rate*minutes,percent:rate*minutes/mealKcal*100,equivalent:rate?mealKcal/rate:null};
   }
   function credits(workouts,day,strategy) {return workouts.filter(w=>w.day===day).reduce((n,w)=>n+Math.max(0,w.met-1)*3.5*w.kg/200*w.minutes*strategy,0);}
-  function warnings(plan,s,pantry={},prices={},workouts=[],strategy=0,extras=[]) {
-    const result=[],restaurant=plan.flat().filter(m=>m.buy).reduce((n,m)=>n+m.buy.cost*m.portion*s.people,0),grocery=sum(shopping(plan,s.people,pantry,prices,extras),'total')+restaurant;
+  function warnings(plan,s,pantry={},prices={},workouts=[],strategy=0,extras=[],purchased={}) {
+    const result=[],restaurant=plan.flat().filter(m=>m.buy).reduce((n,m)=>n+m.buy.cost*m.portion*s.people,0),grocery=sum(shopping(plan,s.people,pantry,prices,extras,purchased),'total')+Object.entries(purchased).reduce((n,[id,count])=>n+count*(prices[id]??D.ingredients[id].price),0)+restaurant;
     if(restaurant||plan.flat().some(m=>m.buy))result.push('Restaurant calories and prices use your selected entries. Protein, carbs, fat and fiber totals include home meals only; restaurant macros are unknown, so macro goals cannot be assessed for days with restaurant meals. Restaurant choices are not screened for your eating style or allergens.');
     if(grocery>s.budget+.01)result.push(`${restaurant?'Estimated groceries plus restaurant meals are':'Estimated grocery checkout is'} $${(grocery-s.budget).toFixed(2)} above your $${s.budget.toFixed(2)} budget. Package rounding is included; change meals, prices, or pantry items to reduce it.`);
     plan.forEach((day,i)=>{const n=dayTotals(day),hasBuy=day.some(m=>m.buy),target=s.calories+credits(workouts,i,strategy);
-      if(Math.abs(n.kcal-target)>target*.08)result.push(`Day ${i+1}: ${Math.round(n.kcal)} kcal is ${Math.round(Math.abs(n.kcal-target))} ${n.kcal>target?'above':'below'} your selected target.`);
+      if(n.kcal>target*1.08)result.push(`Day ${i+1}: ${Math.round(n.kcal)} kcal is ${Math.round(Math.abs(n.kcal-target))} ${n.kcal>target?'above':'below'} your selected target.`);
       if(n.time>s.cookTime)result.push(`Day ${i+1}: about ${n.time} minutes cooking, above your ${s.cookTime}-minute preference.`);
-      if(!hasBuy&&s.protein&&n.protein<s.protein*.9)result.push(`Day ${i+1}: about ${Math.round(n.protein)} g protein, below your ${s.protein} g preference.`);
       if(!hasBuy&&s.diet==='keto'&&n.netCarbs>50)result.push(`Day ${i+1}: about ${Math.round(n.netCarbs)} g net carbohydrate exceeds this planner’s 50 g keto-style threshold.`);
       if(!hasBuy&&s.diet==='low-carb'&&n.carbs>130)result.push(`Day ${i+1}: about ${Math.round(n.carbs)} g carbohydrate exceeds this planner’s 130 g low-carb threshold.`);
     });return result;
@@ -110,9 +88,8 @@
     if(!Array.isArray(raw.plan)||raw.plan.length!==settings.days)throw Error('Plan length must match the selected days.');
     const plan=raw.plan.map(day=>{if(!Array.isArray(day)||day.length>12)throw Error('Each day supports up to 12 meals.');return day.map(m=>{
       if(!m||!Object.hasOwn(recipeMap,m.recipe)||!['breakfast','lunch','dinner','snack','extra'].includes(m.slot)||!Number.isFinite(m.portion)||m.portion<.25||m.portion>4)throw Error('Invalid recipe, slot, or portion in saved plan.');
-      if(!m.buy&&!allowed(recipeMap[m.recipe],settings))throw Error('Saved meal does not match its eating style.');
       if(m.buy&&!D.menu.some(item=>item.recipe===m.recipe))throw Error('Unknown restaurant item.');
-      return {recipe:m.recipe,slot:m.slot,portion:m.portion,locked:Boolean(m.locked),...(m.buy?{buy:validBuy(m.buy)}:{})};
+      return {recipe:m.recipe,slot:m.slot,portion:m.portion,locked:Boolean(m.locked),eaten:Boolean(m.eaten),...(m.buy?{buy:validBuy(m.buy)}:{})};
     });});
     const pantry={},prices={},quotes={walmart:{},kroger:{},target:{}},checked={};
     for(const id of Object.keys(D.ingredients)) {
@@ -123,9 +100,12 @@
     if(!Array.isArray(raw.workouts)||raw.workouts.length>100)throw Error('Invalid workout list.');
     const workouts=raw.workouts.map(w=>{const a=D.activities.find(a=>a.id===w.activity);if(!a||!Number.isInteger(w.day)||w.day<0||w.day>=settings.days||!Number.isFinite(w.kg)||w.kg<30||w.kg>300||!Number.isFinite(w.minutes)||w.minutes<=0||w.minutes>300)throw Error('Invalid workout entry.');return{day:w.day,activity:a.id,met:a.met,kg:w.kg,minutes:w.minutes};});
     const extras=raw.shoppingExtras??[];if(!Array.isArray(extras)||extras.length>100)throw Error('Invalid extra groceries.');
-    const shoppingExtras=extras.map(m=>{if(!m||!Object.hasOwn(recipeMap,m.recipe)||!Number.isFinite(m.portion)||m.portion<.25||m.portion>4)throw Error('Invalid extra grocery recipe.');return {recipe:m.recipe,portion:m.portion};});
+    const shoppingExtras=extras.map(m=>{if(!m||!Object.hasOwn(recipeMap,m.recipe)||!Number.isFinite(m.portion)||m.portion<.25||m.portion>28)throw Error('Invalid extra grocery recipe.');return {recipe:m.recipe,portion:m.portion};});
+    const purchased={};
+    for(const id of Object.keys(D.ingredients))if(Object.hasOwn(raw.purchased||{},id)){const n=raw.purchased[id];if(!Number.isInteger(n)||n<0||n>10000)throw Error('Invalid purchased package count.');purchased[id]=n;}
+    if(!raw.purchased)shopping(plan,settings.people,pantry,prices,shoppingExtras).forEach(i=>{if(checked[i.id])purchased[i.id]=i.packs;});
     const strategy=Number(raw.strategy);if(![0,.5,1].includes(strategy))throw Error('Invalid activity target strategy.');
-    return {version:1,settings,plan,pantry,prices,quotes,checked,workouts,strategy,shoppingExtras};
+    return {version:1,settings,plan,pantry,prices,quotes,checked,workouts,strategy,shoppingExtras,purchased};
   }
-  root.MealEngine={mealNutrition,validBuy,recipeMap,slots,nutrition,nutritionMap,allowed,validateSettings,dayTotals,build,shopping,activity,credits,warnings,validateSession,sum};
+  root.MealEngine={mealNutrition,validBuy,recipeMap,slots,nutrition,nutritionMap,allowed,validateSettings,dayTotals,resizePlan,schedule,shopping,activity,credits,warnings,validateSession,sum};
 })(globalThis);
