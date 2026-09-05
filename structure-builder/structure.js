@@ -122,7 +122,7 @@
         if (foundationRows.length) phases.push({ name: "Foundation", rows: foundationRows });
         var studCount = round(((perimeter * 12 / 16) + 4 + numeric("window-count", 0) * 3 + numeric("door-count", 0) * 3) * stories * (1 + waste));
         var framingRows = [
-            row(studLabel, studCount, "pieces", framing === "steel" ? "light gauge steel wall studs" : framing + " framing studs", "16 in on-center plus openings and allowance"),
+            row(studLabel, studCount, "pieces", (framing === "steel" ? "light gauge steel wall studs" : framing + " framing studs") + " " + Number(wallHeight.toFixed(2)) + " ft", "16 in on-center plus openings and allowance"),
             row("Top and bottom plates", round(perimeter * 3 * stories / 16 * (1 + waste)), "16-ft pieces", framing === "steel" ? "steel wall track" : framing + " framing lumber 16 ft", "Three plate runs per story"),
             row("Wall sheathing", round(grossWallArea / 32 * (1 + waste)), "4×8 sheets", "7/16 OSB sheathing 4x8", "Gross wall area ÷ 32"),
             row("House wrap", displayArea(grossWallArea * (1 + waste)), "", "house wrap", "Exterior wall area plus allowance")
@@ -185,7 +185,7 @@
 
     function shopLinks(query) {
         var encoded = encodeURIComponent(query);
-        return '<div class="shop-links"><a target="_blank" rel="noopener noreferrer sponsored" href="' + window.amazonSearch(query).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">Search Amazon ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/' + encoded + '">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm=' + encoded + '">Lowe\'s ↗</a></div>';
+        return '<div class="shop-links"><a target="_blank" rel="noopener noreferrer sponsored" href="' + window.amazonSearch(query).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">Search Amazon ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/' + encoded + '">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm=' + encoded + '">Lowe\'s ↗</a><a target="_blank" rel="nofollow noopener noreferrer" href="https://www.walmart.com/search?q=' + encoded + '">Search Walmart ↗</a></div>';
     }
 
     function renderBom(phases) {

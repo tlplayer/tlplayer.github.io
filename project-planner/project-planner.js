@@ -77,7 +77,7 @@
             phases = [
                 {name:"Layout and excavation",rows:[item("Finished patio area",area(projectArea),"landscape marking paint","Measured rectangle"),item("Excavation footprint",area(projectArea*1.05),"landscape fabric geotextile","Includes working edge")]},
                 {name:"Base and bedding",rows:[item("Compacted aggregate base",volume(projectArea*baseDepth*(1+waste)),"paver base gravel","Entered compacted depth plus allowance"),item("Bedding sand",volume(projectArea/12*(1+waste)),"paver bedding sand","Approximate 1-inch bed"),item("Edge restraint",length(2*(lengthFeet+widthFeet)*(1+waste)),"paver edge restraint","Perimeter plus allowance")]},
-                {name:"Finish",rows:[item("Pavers",round(projectArea/(paverLength*paverWidth)*(1+waste)),"patio pavers " + fieldValue("paverLength") + " x " + fieldValue("paverWidth"),"Area ÷ paver face plus allowance"),item("Polymeric joint sand",round(projectArea/40),"polymeric paver sand","Planning rate of one bag per 40 ft²")]}
+                {name:"Finish",rows:[item("Pavers",round(projectArea/(paverLength*paverWidth)*(1+waste)),"patio pavers " + fieldValue("paverLength") + " x " + fieldValue("paverWidth") + " " + labelFor("small"),"Area ÷ paver face plus allowance"),item("Polymeric joint sand",round(projectArea/40),"polymeric paver sand","Planning rate of one bag per 40 ft²")]}
             ];
         } else if (currentProject === "landscape") {
             var mulchDepth = toFeet(fieldValue("mulchDepth"), "small");
@@ -89,7 +89,7 @@
             var sodArea = projectArea*(1+waste);
             var topsoilDepth = toFeet(fieldValue("soilDepth"), "small");
             var rollCoverage = toFeet(fieldValue("rollCoverage"), "area");
-            phases = [{name:"Soil preparation",rows:[item("Topsoil",volume(projectArea*topsoilDepth*(1+waste)),"screened topsoil","Entered depth plus allowance"),item("Starter fertilizer",round(projectArea/5000),"lawn starter fertilizer","One planning bag per 5,000 ft²")]},{name:"Sod installation",rows:[item("Sod coverage",area(sodArea),"fresh sod","Area plus trimming allowance"),item("Sod rolls",round(sodArea/rollCoverage),"sod rolls","Order coverage ÷ entered roll coverage")]}];
+            phases = [{name:"Soil preparation",rows:[item("Topsoil",volume(projectArea*topsoilDepth*(1+waste)),"screened topsoil","Entered depth plus allowance"),item("Starter fertilizer",round(projectArea/5000),"lawn starter fertilizer","One planning bag per 5,000 ft²")]},{name:"Sod installation",rows:[item("Sod coverage",area(sodArea),"fresh sod","Area plus trimming allowance"),item("Sod rolls",round(sodArea/rollCoverage),"sod rolls " + fieldValue("rollCoverage") + " " + labelFor("area") + " per roll","Order coverage ÷ entered roll coverage")]}];
         } else if (currentProject === "fence") {
             var panelWidth = toFeet(fieldValue("panelWidth"), "length");
             var panels = round(lengthFeet/panelWidth*(1+waste));
@@ -105,13 +105,13 @@
         return { phases:phases, area:projectArea, items:phases.reduce(function(sum,phase){return sum+phase.rows.length;},0) };
     }
 
-    function shopLinks(query) { var encoded=encodeURIComponent(query); return '<div class="shop-links"><a target="_blank" rel="noopener noreferrer sponsored" href="' + window.amazonSearch(query).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">Search Amazon ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/'+encoded+'">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm='+encoded+'">Lowe\'s ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.google.com/search?q='+encodeURIComponent(query+' supplier near me')+'">Local ↗</a></div>'; }
+    function shopLinks(query) { var encoded=encodeURIComponent(query); return '<div class="shop-links"><a target="_blank" rel="noopener noreferrer sponsored" href="' + window.amazonSearch(query).replace(/&/g, "&amp;").replace(/"/g, "&quot;") + '">Search Amazon ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.homedepot.com/s/'+encoded+'">Home Depot ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.lowes.com/search?searchTerm='+encoded+'">Lowe\'s ↗</a><a target="_blank" rel="nofollow noopener" href="https://www.google.com/search?q='+encodeURIComponent(query+' supplier near me')+'">Local ↗</a><a target="_blank" rel="nofollow noopener noreferrer" href="https://www.walmart.com/search?q=' + encoded + '">Search Walmart ↗</a></div>'; }
     function renderOutput() {
         var result=calculate(); latestPhases=result.phases;
         var title=document.getElementById("project-name").value.trim() || names[currentProject];
         document.getElementById("project-result-title").textContent=title;
         document.getElementById("project-summary").textContent=names[currentProject]+" · quantities update with your dimensions";
-        document.getElementById("project-stats").innerHTML='<div class="stat-card"><strong>'+result.items+'</strong>Material lines</div><div class="stat-card"><strong>'+result.phases.length+'</strong>Project phases</div><div class="stat-card"><strong>'+definitions[currentProject].length+'</strong>Assumptions</div><div class="stat-card"><strong>3+</strong>Buying options</div>';
+        document.getElementById("project-stats").innerHTML='<div class="stat-card"><strong>'+result.items+'</strong>Material lines</div><div class="stat-card"><strong>'+result.phases.length+'</strong>Project phases</div><div class="stat-card"><strong>'+definitions[currentProject].length+'</strong>Assumptions</div><div class="stat-card"><strong>5</strong>Buying options</div>';
         document.getElementById("project-bom").innerHTML=result.phases.map(function(phase){return '<details class="bom-phase" open><summary>'+phase.name+'</summary><table class="bom-table"><thead><tr><th>Material</th><th>Quantity</th><th>Basis</th><th>Where to buy</th></tr></thead><tbody>'+phase.rows.map(function(row){return '<tr><td>'+row.name+'</td><td class="bom-quantity">'+row.quantity+'</td><td>'+row.method+'</td><td>'+shopLinks(row.query)+'</td></tr>';}).join('')+'</tbody></table></details>';}).join('');
         updateUrl();
     }

@@ -727,11 +727,16 @@
 
     function retailerQuery() {
         if (kind === "appliance-fit") return searchNumber(value("productWidth")) + " inch wide " + form.elements.namedItem("applianceType").value;
-        if (kind === "gravel") return searchNumber(optionalValue("bagVolume", 0.5)) + " cu ft gravel bags";
+        if (kind === "gravel") {
+            var bagVolume = optionalValue("bagVolume", 0);
+            var project = form.elements.namedItem("project");
+            var gravelUses = { driveway: "driveway gravel", walkway: "walkway gravel", "french-drain": "drainage gravel", "patio-base": "paver base gravel", "garden-path": "garden path gravel", "parking-pad": "parking pad gravel" };
+            return (bagVolume > 0 ? searchNumber(bagVolume) + " cu ft " : "bulk ") + (project ? gravelUses[project.value] || "gravel" : "gravel");
+        }
         if (kind === "mulch") return form.elements.namedItem("bagSize").value + " cu ft mulch";
         if (kind === "paver") return searchNumber(value("paverLength")) + " x " + searchNumber(value("paverWidth")) + " inch patio pavers";
         if (kind === "fence") return searchNumber(value("panelWidth")) + " ft fence panels";
-        if (kind === "board-foot") return searchNumber(value("thickness")) + " x " + searchNumber(value("width")) + " x " + searchNumber(value("length")) + " lumber";
+        if (kind === "board-foot") return searchNumber(value("thickness")) + " x " + searchNumber(value("width")) + " inch x " + searchNumber(value("length")) + " ft lumber";
         if (kind === "drywall") {
             var sheetSizes = { "32": "4 x 8", "40": "4 x 10", "48": "4 x 12" };
             return sheetSizes[form.elements.namedItem("sheetArea").value] + " drywall sheets";
@@ -744,6 +749,7 @@
 
     function updateRetailerLinks(panel) {
         var query = retailerQuery();
+        panel.querySelector(".walmart-link").href = "https://www.walmart.com/search?q=" + encodeURIComponent(query);
         panel.querySelector(".amazon-link").href = window.amazonSearch(query);
         panel.querySelector(".lowes-link").href = "https://www.lowes.com/search?searchTerm=" + encodeURIComponent(query);
         panel.querySelector(".home-depot-link").href = "https://www.homedepot.com/s/" + encodeURIComponent(query);
@@ -772,6 +778,9 @@
                 '</a>' +
                 '<a class="retailer-link home-depot-link" href="https://www.homedepot.com/s/' + encodeURIComponent(query) + '" target="_blank" rel="nofollow noopener">' +
                     '<span><small>Shop at</small>Home Depot</span><span aria-hidden="true">↗</span>' +
+                '</a>' +
+                '<a class="retailer-link walmart-link" target="_blank" rel="nofollow noopener noreferrer">' +
+                    '<span>Search Walmart</span><span aria-hidden="true">↗</span>' +
                 '</a>' +
             '</div>' +
             '<p class="retailer-note">As an Amazon Associate I earn from qualifying purchases.</p>';
