@@ -25,7 +25,7 @@
   function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
   function key(day,index,m){return `${day}:${index}:${m.recipe}`;}
   function clean(raw){
-    raw=raw||{};const out={start:raw.start||today(),mode:raw.mode||'freeze',lots:[],overrides:{},prep:{}};
+    raw=raw||{};const out={start:raw.start||today(),mode:raw.mode||'freeze',lots:[],overrides:{},prep:{},waste:{}};
     if(!validDate(out.start)||!['freeze','split','one'].includes(out.mode))throw Error('Invalid freshness start date or shopping approach.');
     function fields(x){const o={};for(const name of ['boughtOn','openedOn','labelDate','frozenOn','thawedOn']){const v=x[name]||'';if(v&&!validDate(v))throw Error('Invalid purchase or use-by date.');o[name]=v;}if(x.storage){if(!['fridge','freezer','pantry','freeze-portions'].includes(x.storage))throw Error('Invalid storage location.');o.storage=x.storage;}return o;}
     if(!Array.isArray(raw.lots||[])||(raw.lots||[]).length>1000)throw Error('Too many purchase batches.');
@@ -33,6 +33,11 @@
     if(Object.keys(raw.overrides||{}).length>1000||Object.keys(raw.prep||{}).length>1000)throw Error('Too many saved freshness entries.');
     for(const [k,x]of Object.entries(raw.overrides||{})){if(!/^[a-zA-Z0-9_-]{1,120}$/.test(k))throw Error('Invalid shopping batch key.');out.overrides[k]=fields(x);}
     for(const [k,v]of Object.entries(raw.prep||{})){if(!/^\d+:\d+:[a-z0-9-]+$/.test(k)||!validDate(v))throw Error('Invalid preparation date.');out.prep[k]=v;}
+    for(const [id,qty] of Object.entries(raw.waste||{})){
+      const lot=out.lots.find(l=>l.id===id);
+      if(!lot||!Number.isFinite(qty)||qty<0||qty>lot.packs*D.ingredients[lot.ingredient].pack)throw Error('Invalid discarded ingredient quantity.');
+      out.waste[id]=qty;
+    }
     return out;
   }
   function reconcile(state){
@@ -42,7 +47,10 @@
       if(count>recorded)f.lots.push({id:'legacy-'+id+'-'+Date.now(),ingredient:id,packs:count-recorded,boughtOn:'',openedOn:'',labelDate:'',storage:profile(id).storage});
       if(count<recorded){let excess=recorded-count;for(const row of [...rows].reverse()){const n=Math.min(row.packs,excess);row.packs-=n;excess-=n;}}
     }
-    f.lots=f.lots.filter(l=>l.packs>0);
+    f.lots=f.lots.filter(l=>l.packs>0);f.waste ||= {};
+    // Correcting a purchase count also corrects the waste attached to that purchase.
+    for(const id of Object.keys(f.waste)){const lot=f.lots.find(l=>l.id===id);if(!lot)delete f.waste[id];else f.waste[id]=Math.min(f.waste[id],lot.packs*D.ingredients[lot.ingredient].pack);}
+
   }
   function deadline(row){
     const p=profile(row.ingredient),dates=[];let basis='Unknown — enter label / storage dates';
@@ -69,7 +77,7 @@
     const batches=[];
     for(const item of base){
       const p=profile(item.id),requests=(uses[item.id]||[]).sort((a,b)=>a.date.localeCompare(b.date));
-      const stock=f.lots.filter(l=>l.ingredient===item.id).map(l=>({...l,kind:'bought',remaining:l.packs*item.pack,assignments:[]}));
+      const stock=f.lots.filter(l=>l.ingredient===item.id).map(l=>({...l,kind:'bought',remaining:l.packs*item.pack-(f.waste?.[l.id]||0),wasted:f.waste?.[l.id]||0,assignments:[]}));
       const known=stock.reduce((n,l)=>n+l.packs,0);if(item.bought>known)stock.push({id:'unknown-'+item.id,ingredient:item.id,packs:item.bought-known,boughtOn:'',openedOn:'',labelDate:'',storage:p.storage,kind:'bought',remaining:(item.bought-known)*item.pack,assignments:[]});
       if(item.have)stock.push({id:'pantry-'+item.id,ingredient:item.id,packs:0,boughtOn:'',openedOn:'',labelDate:'',storage:p.storage,kind:'pantry',remaining:item.qty,assignments:[],...f.overrides['pantry-'+item.id]});
       for(let j=0;j<requests.length;j++){
@@ -92,13 +100,13 @@
         lot.remaining-=need;lot.assignments.push({...use,qty:need});stock.push(lot);
       }
       for(const lot of stock){
-        const d=deadline(lot),assigned=lot.assignments.reduce((n,x)=>n+x.qty,0),consumed=lot.assignments.filter(x=>x.eaten).reduce((n,x)=>n+x.qty,0),left=Math.max(0,lot.packs*item.pack-consumed);
+        const d=deadline(lot),assigned=lot.assignments.reduce((n,x)=>n+x.qty,0),consumed=lot.assignments.filter(x=>x.eaten).reduce((n,x)=>n+x.qty,0),left=Math.max(0,lot.packs*item.pack-consumed-(lot.wasted||0));
         const dates=[...new Set(lot.assignments.map(a=>a.date).filter(Boolean))].sort(),eats=[...new Set(lot.assignments.map(a=>a.eat).filter(Boolean))].sort();
         const freezeLate=lot.frozenOn&&lot.boughtOn&&p.freeze&&lot.frozenOn>add(lot.boughtOn,p.days);
         const conflict=Boolean(freezeLate)||(lot.frozenOn&&lot.boughtOn&&lot.frozenOn<lot.boughtOn)||(lot.thawedOn&&lot.frozenOn&&lot.thawedOn<lot.frozenOn)||(lot.openedOn&&lot.boughtOn&&lot.openedOn<lot.boughtOn)||dates.some(date=>(lot.boughtOn&&date<lot.boughtOn)||(d.date&&date>d.date));
         const unsupported=lot.storage!==p.storage&&!(['freezer','freeze-portions'].includes(lot.storage)&&p.freeze);
         let status=lot.kind==='planned'?'Planned purchase':'In storage';
-        if(lot.kind==='bought'&&left<=1e-8)status='Used up';
+        if(lot.kind==='bought'&&left<=1e-8)status=lot.wasted?'Used / discarded':'Used up';
         else if(conflict)status='Dates conflict';
         else if(!d.date||!lot.boughtOn||unsupported||(['freezer','freeze-portions'].includes(lot.storage)&&p.freeze&&!lot.frozenOn))status='Dates / storage need checking';
         else if(lot.kind==='planned'&&lot.boughtOn>asOf)status='Planned purchase';

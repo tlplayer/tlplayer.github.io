@@ -9,23 +9,13 @@
     result.netCarbs=Math.max(0,result.carbs-result.fiber);return result;
   }
   const nutritionMap=Object.fromEntries(D.recipes.map(r=>[r.id,nutrition(r)]));
-  function allowed(recipe,settings) {
-    if(settings.dairyFree && recipe.parts.some(p=>D.ingredients[p.id].allergens.includes('milk')))return false;
-    const diet=settings.diet;
-    if(diet==='balanced')return true;
-    if(diet==='high-protein')return nutritionMap[recipe.id].protein*4/nutritionMap[recipe.id].kcal>=0.22;
-    return recipe.diets.includes(diet);
-  }
   function validateSettings(s) {
     const out={};
-    for(const [k,min,max] of [['calories',1200,4000],['people',1,8],['days',1,7],['budget',10,2000],['cookTime',5,180],['protein',0,250]]) {
+    for(const [k,min,max] of [['people',1,8],['days',1,7],['budget',0,100000]]) {
       if(s[k]===''||s[k]===null||!Number.isFinite(Number(s[k]))||Number(s[k])<min||Number(s[k])>max)throw Error(`${k} must be between ${min} and ${max}.`);
       out[k]=Number(s[k]);
     }
     if(!Number.isInteger(out.people)||!Number.isInteger(out.days))throw Error('People and days must be whole numbers.');
-    out.diet=s.diet;
-    if(!['balanced','high-protein','low-carb','mediterranean','vegetarian','vegan','keto'].includes(out.diet))throw Error('Choose a supported eating style.');
-    for(const k of ['dairyFree','reuse','quick'])out[k]=Boolean(s[k]);
     return out;
   }
   function mealNutrition(m,prices={}) {
@@ -70,17 +60,12 @@
     const grossRate=met*3.5*kg/200,netRate=Math.max(0,met-1)*3.5*kg/200,rate=basis==='net'?netRate:grossRate;
     return {gross:grossRate*minutes,net:netRate*minutes,rate,energy:rate*minutes,percent:rate*minutes/mealKcal*100,equivalent:rate?mealKcal/rate:null};
   }
-  function credits(workouts,day,strategy) {return workouts.filter(w=>w.day===day).reduce((n,w)=>n+Math.max(0,w.met-1)*3.5*w.kg/200*w.minutes*strategy,0);}
-  function warnings(plan,s,pantry={},prices={},workouts=[],strategy=0,extras=[],purchased={}) {
-    const result=[],restaurant=plan.flat().filter(m=>m.buy).reduce((n,m)=>n+m.buy.cost*m.portion*s.people,0),grocery=sum(shopping(plan,s.people,pantry,prices,extras,purchased),'total')+Object.entries(purchased).reduce((n,[id,count])=>n+count*(prices[id]??D.ingredients[id].price),0)+restaurant;
-    if(restaurant||plan.flat().some(m=>m.buy))result.push('Restaurant calories and prices use your selected entries. Protein, carbs, fat and fiber totals include home meals only; restaurant macros are unknown, so macro goals cannot be assessed for days with restaurant meals. Restaurant choices are not screened for your eating style or allergens.');
-    if(grocery>s.budget+.01)result.push(`${restaurant?'Estimated groceries plus restaurant meals are':'Estimated grocery checkout is'} $${(grocery-s.budget).toFixed(2)} above your $${s.budget.toFixed(2)} budget. Package rounding is included; change meals, prices, or pantry items to reduce it.`);
-    plan.forEach((day,i)=>{const n=dayTotals(day),hasBuy=day.some(m=>m.buy),target=s.calories+credits(workouts,i,strategy);
-      if(n.kcal>target*1.08)result.push(`Day ${i+1}: ${Math.round(n.kcal)} kcal is ${Math.round(Math.abs(n.kcal-target))} ${n.kcal>target?'above':'below'} your selected target.`);
-      if(n.time>s.cookTime)result.push(`Day ${i+1}: about ${n.time} minutes cooking, above your ${s.cookTime}-minute preference.`);
-      if(!hasBuy&&s.diet==='keto'&&n.netCarbs>50)result.push(`Day ${i+1}: about ${Math.round(n.netCarbs)} g net carbohydrate exceeds this planner’s 50 g keto-style threshold.`);
-      if(!hasBuy&&s.diet==='low-carb'&&n.carbs>130)result.push(`Day ${i+1}: about ${Math.round(n.carbs)} g carbohydrate exceeds this planner’s 130 g low-carb threshold.`);
-    });return result;
+  function workoutEnergy(workouts,day=null,basis='gross') {
+    return workouts.filter(w=>day===null||w.day===day).reduce((n,w)=>n+activity(w.met,w.kg,w.minutes,1,basis).energy,0);
+  }
+  function warnings(plan,s,pantry={},prices={},extras=[],purchased={}) {
+    const restaurant=plan.flat().filter(m=>m.buy).reduce((n,m)=>n+m.buy.cost*m.portion*s.people,0),grocery=sum(shopping(plan,s.people,pantry,prices,extras,purchased),'total')+Object.entries(purchased).reduce((n,[id,count])=>n+count*(prices[id]??D.ingredients[id].price),0)+restaurant;
+    return grocery>s.budget+.01?[`Estimated groceries and restaurant meals are $${(grocery-s.budget).toFixed(2)} above your $${s.budget.toFixed(2)} food budget. Whole packages are included.`]:[];
   }
   function validateSession(raw) {
     if(!raw||raw.version!==1)throw Error('This is not a supported CravePlan file.');
@@ -104,10 +89,9 @@
     const purchased={};
     for(const id of Object.keys(D.ingredients))if(Object.hasOwn(raw.purchased||{},id)){const n=raw.purchased[id];if(!Number.isInteger(n)||n<0||n>10000)throw Error('Invalid purchased package count.');purchased[id]=n;}
     if(!raw.purchased)shopping(plan,settings.people,pantry,prices,shoppingExtras).forEach(i=>{if(checked[i.id])purchased[i.id]=i.packs;});
-    const strategy=Number(raw.strategy);if(![0,.5,1].includes(strategy))throw Error('Invalid activity target strategy.');
     const freshness=root.CraveFresh?root.CraveFresh.clean(raw.freshness):undefined;
     if(freshness)for(const id of Object.keys(D.ingredients)){if(freshness.lots.filter(l=>l.ingredient===id).reduce((n,l)=>n+l.packs,0)>(purchased[id]||0))throw Error('Purchase batch counts exceed the saved package total.');}
-    return {version:1,settings,plan,pantry,prices,quotes,checked,workouts,strategy,shoppingExtras,purchased,...(freshness?{freshness}:{})};
+    return {version:1,settings,plan,pantry,prices,quotes,checked,workouts,shoppingExtras,purchased,...(freshness?{freshness}:{})};
   }
-  root.MealEngine={mealNutrition,validBuy,recipeMap,slots,nutrition,nutritionMap,allowed,validateSettings,dayTotals,resizePlan,schedule,shopping,activity,credits,warnings,validateSession,sum};
+  root.MealEngine={mealNutrition,validBuy,recipeMap,slots,nutrition,nutritionMap,validateSettings,dayTotals,resizePlan,schedule,shopping,activity,workoutEnergy,warnings,validateSession,sum};
 })(globalThis);
