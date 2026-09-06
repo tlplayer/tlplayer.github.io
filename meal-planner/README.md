@@ -8,7 +8,7 @@ The default shortlist is curated from popular or signature restaurant dishes, no
 
 ## Page layout
 
-The page follows Menu → Plan → Plan analysis. The menu has Recipe and Add meal buttons, followed by the editable weekly board and meal budget. Plan analysis groups meal kcal and cost summaries, leftovers, freshness dates, optional exercise, and shared shopping totals. Header navigation and analysis links follow that order.
+The page follows Menu → Plan and week overview → Shopping list → Plan analysis. The menu has Recipe and Add meal buttons, followed by the meal budget, editable weekly board and kcal/cost overview. “From the menu to your basket” comes next with CSV download, printing and store links, so users can get their list before continuing into leftovers, freshness and workout analysis. Header navigation follows that order.
 
 ## Choosing the week
 
@@ -57,7 +57,7 @@ Every restaurant shortlist entry opens a shareable comparison at `/meal-planner/
 
 Three standard US items have prefilled restaurant calories checked on 2026-09-05: [Big Mac](https://www.mcdonalds.com/us/en-us/product/big-mac.html), [Chick-fil-A original sandwich](https://www.chick-fil-a.com/menu/entrees/chick-fil-a-chicken-sandwich), and [8-count nuggets](https://www.chick-fil-a.com/menu/entrees/8-ct-chick-fil-a-nuggets). Other items require calories for the user's actual configuration. Restaurant price and time to food start blank. Enter an all-in price per serving, including allocated fees/tax/tip. Unknown inputs never imply zero price or immediate delivery. Home cost is ingredient consumption; the grocery basket still buys whole packages.
 
-Make/buy comparisons show differences in calories, money and estimated time until food, plus optional activity minutes and workout percentage for each portion. Adding a restaurant meal requires calories and price; its snapshot contributes to daily/weekly calories, household food spending, save/restore, CSV and activity comparisons. It adds no cooking time or groceries. Restaurant macros are unknown (blank in CSV); UI totals show known home-meal macros, and macro-goal judgments are suppressed for affected days. Restaurant meals remain the user’s explicit choices; other slots stay open.
+Make/buy comparisons show differences in calories, money and estimated time until food, plus optional activity minutes and workout percentage for each portion. Adding a restaurant meal requires calories and price; its snapshot contributes to daily/weekly calories, household food spending, save/restore, CSV and activity comparisons. It adds no cooking time or groceries. The UI and meal CSV show kcal, food value and timing; macro columns and goals have been removed. Restaurant meals remain the user’s explicit choices; other slots stay open.
 
 The ingredients-only action creates extra groceries without adding calories to the plan. Extras scale with household size, combine with planned home ingredients, survive save/restore and appear in grocery exports. They are explicitly additional: remove the extra if subsequently scheduling the same home meal. An on-screen list provides individual removal.
 
