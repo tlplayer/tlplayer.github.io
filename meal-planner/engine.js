@@ -105,7 +105,9 @@
     for(const id of Object.keys(D.ingredients))if(Object.hasOwn(raw.purchased||{},id)){const n=raw.purchased[id];if(!Number.isInteger(n)||n<0||n>10000)throw Error('Invalid purchased package count.');purchased[id]=n;}
     if(!raw.purchased)shopping(plan,settings.people,pantry,prices,shoppingExtras).forEach(i=>{if(checked[i.id])purchased[i.id]=i.packs;});
     const strategy=Number(raw.strategy);if(![0,.5,1].includes(strategy))throw Error('Invalid activity target strategy.');
-    return {version:1,settings,plan,pantry,prices,quotes,checked,workouts,strategy,shoppingExtras,purchased};
+    const freshness=root.CraveFresh?root.CraveFresh.clean(raw.freshness):undefined;
+    if(freshness)for(const id of Object.keys(D.ingredients)){if(freshness.lots.filter(l=>l.ingredient===id).reduce((n,l)=>n+l.packs,0)>(purchased[id]||0))throw Error('Purchase batch counts exceed the saved package total.');}
+    return {version:1,settings,plan,pantry,prices,quotes,checked,workouts,strategy,shoppingExtras,purchased,...(freshness?{freshness}:{})};
   }
   root.MealEngine={mealNutrition,validBuy,recipeMap,slots,nutrition,nutritionMap,allowed,validateSettings,dayTotals,resizePlan,schedule,shopping,activity,credits,warnings,validateSession,sum};
 })(globalThis);

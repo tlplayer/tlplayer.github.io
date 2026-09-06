@@ -27,7 +27,7 @@
   function clean(raw){
     raw=raw||{};const out={start:raw.start||today(),mode:raw.mode||'freeze',lots:[],overrides:{},prep:{}};
     if(!validDate(out.start)||!['freeze','split','one'].includes(out.mode))throw Error('Invalid freshness start date or shopping approach.');
-    function fields(x){const o={};for(const name of ['boughtOn','openedOn','labelDate']){const v=x[name]||'';if(v&&!validDate(v))throw Error('Invalid purchase or use-by date.');o[name]=v;}if(x.storage){if(!['fridge','freezer','pantry','freeze-portions'].includes(x.storage))throw Error('Invalid storage location.');o.storage=x.storage;}return o;}
+    function fields(x){const o={};for(const name of ['boughtOn','openedOn','labelDate','frozenOn','thawedOn']){const v=x[name]||'';if(v&&!validDate(v))throw Error('Invalid purchase or use-by date.');o[name]=v;}if(x.storage){if(!['fridge','freezer','pantry','freeze-portions'].includes(x.storage))throw Error('Invalid storage location.');o.storage=x.storage;}return o;}
     if(!Array.isArray(raw.lots||[])||(raw.lots||[]).length>1000)throw Error('Too many purchase batches.');
     const ids=new Set();out.lots=(raw.lots||[]).map(x=>{if(!x||!Object.hasOwn(D.ingredients,x.ingredient)||!Number.isInteger(x.packs)||x.packs<1||x.packs>10000||typeof x.id!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(x.id)||ids.has(x.id))throw Error('Invalid purchase batch.');ids.add(x.id);return {id:x.id,ingredient:x.ingredient,packs:x.packs,...fields(x)};});
     if(Object.keys(raw.overrides||{}).length>1000||Object.keys(raw.prep||{}).length>1000)throw Error('Too many saved freshness entries.');
@@ -48,7 +48,9 @@
     const p=profile(row.ingredient),dates=[];let basis='Unknown — enter label / storage dates';
     const frozen=['freezer','freeze-portions'].includes(row.storage);
     if(row.boughtOn&&p.days!==null&&row.storage===p.storage){dates.push(add(row.boughtOn,p.days));basis='Conservative storage estimate';}
-    if(row.boughtOn&&frozen&&p.freeze){dates.push(add(row.boughtOn,p.freeze));basis='Frozen quality review date, not safety expiration';}
+    if(row.frozenOn&&frozen&&p.freeze){dates.push(add(row.frozenOn,p.freeze));basis='Frozen quality review date, not safety expiration';}
+    if(row.frozenOn&&row.boughtOn&&p.freeze&&row.frozenOn>add(row.boughtOn,p.days)){dates.push(add(row.boughtOn,p.days));basis='Frozen after the conservative raw-storage window; needs review';}
+    if(row.thawedOn&&p.freeze){dates.push(add(row.thawedOn,1));basis='Conservative 1-day review after refrigerated thawing';}
     // Opening never resets a raw-food clock. An unverified after-opening window stays unknown.
     if(row.labelDate){dates.push(row.labelDate);basis=dates.length>1?basis+'; capped by entered label date':'User-entered label date; check after-opening instructions';}
     return {date:dates.length?dates.sort()[0]:'',basis};
@@ -69,34 +71,41 @@
       const p=profile(item.id),requests=(uses[item.id]||[]).sort((a,b)=>a.date.localeCompare(b.date));
       const stock=f.lots.filter(l=>l.ingredient===item.id).map(l=>({...l,kind:'bought',remaining:l.packs*item.pack,assignments:[]}));
       const known=stock.reduce((n,l)=>n+l.packs,0);if(item.bought>known)stock.push({id:'unknown-'+item.id,ingredient:item.id,packs:item.bought-known,boughtOn:'',openedOn:'',labelDate:'',storage:p.storage,kind:'bought',remaining:(item.bought-known)*item.pack,assignments:[]});
-      if(item.have)stock.push({id:'pantry-'+item.id,ingredient:item.id,packs:0,boughtOn:'',openedOn:'',labelDate:'',storage:p.storage,kind:'pantry',remaining:item.qty,assignments:[]});
+      if(item.have)stock.push({id:'pantry-'+item.id,ingredient:item.id,packs:0,boughtOn:'',openedOn:'',labelDate:'',storage:p.storage,kind:'pantry',remaining:item.qty,assignments:[],...f.overrides['pantry-'+item.id]});
       for(let j=0;j<requests.length;j++){
         const use=requests[j];let need=use.qty;
         stock.sort((a,b)=>(deadline(a).date||'9999').localeCompare(deadline(b).date||'9999'));
-        for(const lot of stock){const end=deadline(lot).date;if(lot.remaining<=0||(use.date&&lot.boughtOn&&lot.boughtOn>use.date)||(use.date&&end&&end<use.date))continue;const n=Math.min(need,lot.remaining);lot.remaining-=n;need-=n;lot.assignments.push({...use,qty:n});if(need<1e-8)break;}
+        for(const lot of stock){const end=deadline(lot).date;if(lot.remaining<=0||(use.date&&lot.boughtOn&&lot.boughtOn>use.date)||(use.date&&end&&end<use.date&&!(lot.kind==='planned'&&(f.mode==='one'||f.overrides[lot.id]))))continue;const n=Math.min(need,lot.remaining);lot.remaining-=n;need-=n;lot.assignments.push({...use,qty:n});if(need<1e-8)break;}
         if(need<1e-8)continue;
         const storage=f.mode==='freeze'&&p.freeze?'freeze-portions':p.storage;
         const span=storage==='freeze-portions'?p.freeze:f.mode==='one'?10000:p.days;
         const end=use.date&&span!==null?add(use.date,Math.min(span,365)):'';
-        const qty=need+requests.slice(j+1).filter(x=>!end||!x.date||x.date<=end).reduce((n,x)=>n+x.qty,0),packs=Math.ceil(qty/item.pack-1e-10);
-        const id=`plan-${item.id}-${use.date||'undated'}-${storage}`;
-        const lot={id,ingredient:item.id,packs,boughtOn:use.date,openedOn:use.date,labelDate:'',storage,kind:'planned',remaining:packs*item.pack,assignments:[],...f.overrides[id]};
+        let qty=need;const projection=stock.map(l=>({...l}));
+        for(const upcoming of requests.slice(j+1).filter(x=>!end||!x.date||x.date<=end)){
+          let missing=upcoming.qty;
+          for(const owned of projection){const expires=deadline(owned).date;if(owned.remaining<=0||(upcoming.date&&owned.boughtOn&&owned.boughtOn>upcoming.date)||(upcoming.date&&expires&&expires<upcoming.date))continue;const take=Math.min(missing,owned.remaining);owned.remaining-=take;missing-=take;if(missing<1e-8)break;}
+          qty+=missing;
+        }
+        const packs=Math.ceil(qty/item.pack-1e-10);
+        const id=`plan-${item.id}-${use.date||'undated'}-${storage}-${j}`;
+        const lot={id,ingredient:item.id,packs,boughtOn:use.date,openedOn:use.date,labelDate:'',storage,frozenOn:['freezer','freeze-portions'].includes(storage)?use.date:'',thawedOn:'',kind:'planned',remaining:packs*item.pack,assignments:[],...f.overrides[id]};
         lot.remaining-=need;lot.assignments.push({...use,qty:need});stock.push(lot);
       }
       for(const lot of stock){
         const d=deadline(lot),assigned=lot.assignments.reduce((n,x)=>n+x.qty,0),consumed=lot.assignments.filter(x=>x.eaten).reduce((n,x)=>n+x.qty,0),left=Math.max(0,lot.packs*item.pack-consumed);
         const dates=[...new Set(lot.assignments.map(a=>a.date).filter(Boolean))].sort(),eats=[...new Set(lot.assignments.map(a=>a.eat).filter(Boolean))].sort();
-        const conflict=dates.some(date=>(lot.boughtOn&&date<lot.boughtOn)||(d.date&&date>d.date));
+        const freezeLate=lot.frozenOn&&lot.boughtOn&&p.freeze&&lot.frozenOn>add(lot.boughtOn,p.days);
+        const conflict=Boolean(freezeLate)||(lot.frozenOn&&lot.boughtOn&&lot.frozenOn<lot.boughtOn)||(lot.thawedOn&&lot.frozenOn&&lot.thawedOn<lot.frozenOn)||(lot.openedOn&&lot.boughtOn&&lot.openedOn<lot.boughtOn)||dates.some(date=>(lot.boughtOn&&date<lot.boughtOn)||(d.date&&date>d.date));
         const unsupported=lot.storage!==p.storage&&!(['freezer','freeze-portions'].includes(lot.storage)&&p.freeze);
         let status=lot.kind==='planned'?'Planned purchase':'In storage';
         if(lot.kind==='bought'&&left<=1e-8)status='Used up';
         else if(conflict)status='Dates conflict';
-        else if(!d.date||!lot.boughtOn||unsupported)status='Dates / storage need checking';
+        else if(!d.date||!lot.boughtOn||unsupported||(['freezer','freeze-portions'].includes(lot.storage)&&p.freeze&&!lot.frozenOn))status='Dates / storage need checking';
         else if(lot.kind==='planned'&&lot.boughtOn>asOf)status='Planned purchase';
         else if(d.date<asOf)status=['freezer','freeze-portions'].includes(lot.storage)?'Past frozen quality review':'Past use-by estimate';
         else if(d.date<=add(asOf,2))status='Use soon';
         const freeze=['freeze-portions','freezer'].includes(lot.storage),thaw=freeze&&p.freeze?dates.filter(date=>date!==lot.boughtOn).map(date=>add(date,-1)):[];
-        batches.push({...lot,name:item.name,unit:item.unit,pack:item.pack,price:item.price,assigned,unallocated:Math.max(0,lot.remaining),remainingNow:left,useDates:dates,eatDates:eats,useBy:d.date,basis:d.basis,status,source:sources[p.source],note:p.note,freezeOn:freeze?lot.boughtOn:'',thawDates:thaw,cost:lot.kind==='planned'?packsCost(lot.packs,item.price):0,action:conflict?'Change purchase / preparation dates or verify appropriate frozen storage.':lot.remaining>0&&p.freeze?'Keep unallocated portions frozen promptly; label portions and thaw only what is needed.':lot.remaining>0&&p.days!==null?'Use surplus within the storage window, choose a smaller pack, or buy this food later.':!d.date?'Enter the package date and check after-opening instructions.':'Follow package instructions and the planned use dates.'});
+        batches.push({...lot,name:item.name,unit:item.unit,pack:item.pack,price:item.price,assigned,unallocated:Math.max(0,lot.remaining),remainingNow:left,useDates:dates,eatDates:eats,useBy:d.date,basis:d.basis,status,source:sources[p.source],note:p.note,freezeOn:freeze?lot.frozenOn||'':'',thawDates:thaw,cost:lot.kind==='planned'?packsCost(lot.packs,item.price):0,action:conflict?'Change purchase / preparation dates or verify appropriate frozen storage.':lot.remaining>0&&p.freeze?'Keep unallocated portions frozen promptly; label portions and thaw only what is needed.':lot.remaining>0&&p.days!==null?'Use surplus within the storage window, choose a smaller pack, or buy this food later.':!d.date?'Enter the package date and check after-opening instructions.':'Follow package instructions and the planned use dates.'});
       }
     }
     const cart=base.map(i=>{const rows=batches.filter(b=>b.ingredient===i.id),planned=rows.filter(b=>b.kind==='planned');return {...i,packs:planned.reduce((n,b)=>n+b.packs,0),total:planned.reduce((n,b)=>n+b.cost,0),leftover:rows.reduce((n,b)=>n+b.unallocated,0)};});

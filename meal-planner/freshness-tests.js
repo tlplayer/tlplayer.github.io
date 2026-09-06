@@ -1,0 +1,28 @@
+function runFreshnessTests(){
+  const F=CraveFresh,E=MealEngine,R=[];const t=(name,fn)=>{try{if(!fn())throw Error('Assertion failed');R.push({name,pass:true});}catch(e){R.push({name,pass:false,error:e.message});}};
+  const throws=fn=>{try{fn();return false;}catch{return true;}};
+  const settings={calories:2200,people:1,days:7,budget:85,cookTime:60,protein:90,diet:'balanced',dairyFree:false};
+  const make=()=>({version:1,settings:{...settings},plan:E.schedule(E.resizePlan(settings),{recipe:'chicken-rice',slot:'dinner',portion:1},0,7),pantry:{},prices:{},quotes:{walmart:{},kroger:{},target:{}},checked:{},workouts:[],strategy:0,shoppingExtras:[],purchased:{},freshness:F.clean({start:'2026-09-05'})});
+  const chicken=s=>F.analyze(s,s.plan,'2026-09-05').batches.filter(b=>b.ingredient==='chicken');
+  t('Date arithmetic crosses DST and leap days without offsets',()=>F.add('2026-03-07',2)==='2026-03-09'&&F.add('2024-02-28',1)==='2024-02-29');
+  t('Malformed and impossible saved dates are rejected',()=>!F.validDate('2026-02-30')&&throws(()=>F.clean({start:'2026-02-30'})));
+  t('Frozen bulk chicken uses two packages for seven days',()=>{const b=chicken(make());return b.length===1&&b[0].packs===2&&b[0].freezeOn==='2026-09-05'&&b[0].thawDates.length===6;});
+  t('Fresh chicken splits at its own window rather than day five',()=>{const s=make();s.freshness.mode='split';const b=chicken(s);return b.length===4&&b.map(x=>x.boughtOn).join(',')==='2026-09-05,2026-09-07,2026-09-09,2026-09-11';});
+  t('Freshness-related extra package cost is reflected in the cart',()=>{const s=make(),a=F.analyze(s).cart.find(i=>i.id==='chicken');s.freshness.mode='split';const b=F.analyze(s).cart.find(i=>i.id==='chicken');return a.packs===2&&b.packs===4&&b.total===30;});
+  t('One early shop keeps bulk counts and reports late uses',()=>{const s=make();s.freshness.mode='one';const b=chicken(s);return b.length===1&&b[0].packs===2&&b[0].status==='Dates conflict';});
+  t('Produce uses a different window from raw meat',()=>{const s=make();s.freshness.mode='split';const b=F.analyze(s).batches.filter(b=>b.ingredient==='broccoli');return b.length===2&&b[1].boughtOn==='2026-09-09';});
+  t('Dry ingredient with no verified window stays unknown',()=>{const b=F.analyze(make()).batches.find(b=>b.ingredient==='rice');return b.useBy===''&&b.status==='Dates / storage need checking';});
+  t('Entered label date caps the storage estimate and never extends it',()=>{const row={ingredient:'chicken',storage:'fridge',boughtOn:'2026-09-05',labelDate:'2026-10-05'};return F.deadline(row).date==='2026-09-06'&&F.deadline({...row,labelDate:'2026-09-05'}).date==='2026-09-05';});
+  t('Freezing late does not reset a raw-food storage clock',()=>F.deadline({ingredient:'chicken',storage:'freezer',boughtOn:'2026-09-05',frozenOn:'2026-09-10'}).date==='2026-09-06');
+  t('Recorded thawing starts a short refrigerated review clock',()=>F.deadline({ingredient:'chicken',storage:'freezer',boughtOn:'2026-09-05',frozenOn:'2026-09-05',thawedOn:'2026-09-10'}).date==='2026-09-11');
+  t('Legacy packages migrate with unknown purchase dates',()=>{const s=make();s.purchased.chicken=2;F.reconcile(s);const b=chicken(s).find(b=>b.kind==='bought');return s.freshness.lots[0].boughtOn===''&&b.status==='Dates / storage need checking';});
+  t('Purchases on different dates remain separate batches',()=>{const s=make();s.purchased.chicken=2;s.freshness.lots=[{id:'a',ingredient:'chicken',packs:1,boughtOn:'2026-09-01',storage:'fridge'},{id:'b',ingredient:'chicken',packs:1,boughtOn:'2026-09-05',storage:'fridge'}];const b=chicken(s).filter(b=>b.kind==='bought');return b.length===2&&b[0].useBy!==b[1].useBy;});
+  t('Expired bought food is not allocated to later meals',()=>{const s=make();s.purchased.chicken=1;s.freshness.lots=[{id:'old',ingredient:'chicken',packs:1,boughtOn:'2026-09-01',storage:'fridge'}];const b=chicken(s).find(b=>b.id==='old');return b.assigned===0&&b.status==='Past use-by estimate'&&b.remainingNow===900;});
+  t('Preparation moves purchases and flags leftovers kept too long',()=>{const s=make();s.freshness.prep['0:0:chicken-rice']='2026-08-30';const data=F.analyze(s);return data.meals[0].cook==='2026-08-30'&&data.meals[0].status.includes('Prepare later')&&data.batches.some(b=>b.boughtOn==='2026-08-30');});
+  t('Overnight recipes prepare the day before eating',()=>{const s=make();s.plan=E.schedule(E.resizePlan(settings),{recipe:'overnight-oats',portion:1,slot:'breakfast'},0,1);return F.mealSchedule(s)[0].cook==='2026-09-04';});
+  t('Unscheduled extra groceries do not get invented cooking dates',()=>{const s=make();s.plan=E.resizePlan(settings);s.shoppingExtras=[{recipe:'banana-snack',portion:1}];return F.analyze(s).batches.every(b=>!b.boughtOn&&!b.useDates.length);});
+  t('Invalid lots and excessive saved counts are rejected',()=>throws(()=>F.clean({lots:[{id:'a',ingredient:'chicken',packs:-1}]}))&&(()=>{const s=make();s.freshness.lots=[{id:'a',ingredient:'chicken',packs:2,boughtOn:'2026-09-05'}];return throws(()=>E.validateSession(s));})());
+  t('Freshness data survives save validation with unknown dates intact',()=>{const s=make();s.purchased.chicken=1;F.reconcile(s);s.freshness.prep['0:0:chicken-rice']='2026-09-04';const r=E.validateSession(JSON.parse(JSON.stringify(s)));return r.freshness.start===s.freshness.start&&r.freshness.lots[0].boughtOn===''&&r.freshness.prep['0:0:chicken-rice']==='2026-09-04';});
+  t('Already-recorded later purchases reduce earlier projected buying',()=>{const s=make();s.purchased.chicken=1;s.freshness.lots=[{id:'later',ingredient:'chicken',packs:1,boughtOn:'2026-09-07',frozenOn:'2026-09-07',storage:'freezer'}];return chicken(s).filter(b=>b.kind==='planned').reduce((n,b)=>n+b.packs,0)===1;});
+  return R;
+}
